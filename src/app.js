@@ -24,6 +24,7 @@ import refInstansiRoute from "./modules/ref-instansi/ref-instansi.route.js";
 import refJabatanRoute from "./modules/ref-jabatan/ref-jabatan.route.js";
 
 const app = express();
+app.set("trust proxy", 1);
 // Add BigInt serialization support
 BigInt.prototype.toJSON = function() { return this.toString() };
 

@@ -9,10 +9,13 @@ export const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
   const { token, user } = await authService.login(username, password);
 
+  // Cek apakah request menggunakan HTTPS atau reverse proxy SSL (misal: Nginx)
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
+
   // Set JWT di httpOnly cookie (Rule 07)
   res.cookie("token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isHttps, // Hanya 'true' jika koneksi menggunakan HTTPS/SSL
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
     maxAge: 24 * 60 * 60 * 1000, // 1 hari
   });
@@ -24,9 +27,11 @@ export const login = asyncHandler(async (req, res) => {
  * Logout user — clear cookie
  */
 export const logout = asyncHandler(async (req, res) => {
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
+
   res.clearCookie("token", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: isHttps,
     sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
   });
 
