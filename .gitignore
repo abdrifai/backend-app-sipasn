@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Storage & Uploads
+storage/*
+!storage/.gitkeep
+!storage/*/.gitkeep
+
+# System & OS
+.DS_Store
+Thumbs.db

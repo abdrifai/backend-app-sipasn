@@ -1,0 +1,2844 @@
+openapi: 3.0.3
+info:
+  title: SIPASN Backend API
+  description: |
+    Dokumentasi resmi REST API Sistem Informasi Manajemen Pegawai & ASN (SIPASN).
+    Arsitektur backend menggunakan Express.js, Clean Architecture (Controller -> Service -> Repository), Prisma ORM, dan autentikasi JWT httpOnly Cookie / Bearer.
+  version: 1.0.0
+  contact:
+    name: Tim Pengembang SIPASN
+    email: support@sipasn.local
+servers:
+  - url: http://localhost:3000
+    description: Server Development (Local)
+  - url: /
+    description: Current Server Host
+
+tags:
+  - name: Auth
+    description: Endpoint autentikasi, login, logout, sesi pengguna, dan profil
+  - name: Users
+    description: Manajemen pengguna sistem dan hak akses (Admin only)
+  - name: Pegawai
+    description: Pencarian data pegawai, detail lengkap, statistik, dan laporan DUK
+  - name: Ref Jabatan
+    description: Master data jabatan ASN (Fungsional, Pelaksana, Jenjang, Jenis, Nama Lama, dan Master Jabatan)
+  - name: Ref Unit Organisasi
+    description: Master data struktur organisasi (Tree View, Unor Induk, Sub Unor, Sub Unor Sub, dan Unor)
+  - name: Ref Pendidikan
+    description: Master data referensi pendidikan dan tingkat pendidikan
+  - name: Ref Diklat
+    description: Master data referensi jenis dan jenjang diklat
+  - name: Ref Kedudukan PNS
+    description: Master data status & kedudukan pegawai ASN
+  - name: Ref Jenis Mutasi
+    description: Master data referensi jenis mutasi kepegawaian
+  - name: Ref Jenis Hukuman
+    description: Master data referensi tingkat dan jenis hukuman disiplin
+  - name: Ref Instansi
+    description: Master data referensi instansi pemerintah
+  - name: DB Analysis
+    description: Endpoint diagnostik dan analisis data database
+
+paths:
+  # ==========================================
+  # AUTH
+  # ==========================================
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login pengguna
+      description: Otentikasi pengguna menggunakan username/email dan password. Mengembalikan data user dan menyimpan JWT di httpOnly cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout pengguna
+      description: Menghapus token JWT cookie dan mengakhiri sesi aktif.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Logout berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Dapatkan profil pengguna yang sedang login
+      description: Mengembalikan data detail user dari sesi aktif berdasarkan token JWT.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Data pengguna aktif berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/auth/profile:
+    put:
+      tags:
+        - Auth
+      summary: Perbarui profil pengguna aktif
+      description: Memperbarui nama, email, username, password, atau foto profil pengguna yang sedang login.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                username:
+                  type: string
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                photo:
+                  type: string
+                  format: binary
+                  description: File foto profil (JPG/PNG/WebP, max 2MB)
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profil berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  # ==========================================
+  # USERS (Admin)
+  # ==========================================
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: Daftar pengguna sistem
+      description: Mengambil daftar pengguna sistem dengan pagination dan filter pencarian nama/email/username/role.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Nomor halaman
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Jumlah data per halaman
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Kata kunci pencarian nama/email/username
+        - in: query
+          name: role
+          schema:
+            type: string
+          description: Filter berdasarkan nama role
+      responses:
+        '200':
+          description: Data pengguna berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Users
+      summary: Tambah pengguna baru
+      description: Membuat akun pengguna sistem baru (Hak akses khusus Admin / Super Admin).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Pengguna berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/users/roles:
+    get:
+      tags:
+        - Users
+      summary: Daftar roles
+      description: Mengambil daftar semua role untuk opsi dropdown.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Daftar role berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Detail pengguna berdasarkan ID
+      description: Mengambil data pengguna sistem berdasarkan ID.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Data pengguna ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Users
+      summary: Perbarui pengguna sistem
+      description: Memperbarui data pengguna berdasarkan ID (Admin only).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Data pengguna berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - Users
+      summary: Hapus pengguna sistem (Soft Delete)
+      description: Melakukan soft delete akun pengguna (is_deleted = true).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pengguna berhasil dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==========================================
+  # PEGAWAI
+  # ==========================================
+  /api/pegawai:
+    get:
+      tags:
+        - Pegawai
+      summary: Cari & daftar pegawai ASN
+      description: Mengambil daftar pegawai ASN dengan filter pencarian NIP atau Nama, pagination, unit kerja, golongan, dan jenis jabatan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Pencarian NIP atau Nama pegawai
+        - in: query
+          name: unor_id
+          schema:
+            type: integer
+          description: Filter ID Unit Kerja (Unor Induk)
+        - in: query
+          name: gol_id
+          schema:
+            type: integer
+          description: Filter ID Golongan
+        - in: query
+          name: jnsjab_id
+          schema:
+            type: integer
+          description: Filter ID Jenis Jabatan
+      responses:
+        '200':
+          description: Data pegawai berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PegawaiListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah pegawai baru
+      description: Membuat data pegawai dan data orang baru di sistem secara atomic.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nama
+                - nipBaru
+                - t4Lhr
+                - tglLhr
+                - jkl_id
+              properties:
+                nama:
+                  type: string
+                  example: "Ahmad Dahlan, S.Kom."
+                nipBaru:
+                  type: string
+                  example: "199001012020121001"
+                nipLama:
+                  type: string
+                  example: "132000111"
+                nik:
+                  type: string
+                  example: "7209010101900001"
+                kk:
+                  type: string
+                  example: "7209010101900002"
+                t4Lhr:
+                  type: string
+                  example: "AMPANA"
+                tglLhr:
+                  type: string
+                  format: date
+                  example: "1990-01-01"
+                jkl_id:
+                  type: string
+                  enum: ["1", "2"]
+                  example: "1"
+                agama_id:
+                  type: string
+                  example: "1"
+                kawin_id:
+                  type: string
+                  example: "2"
+                golDarah:
+                  type: string
+                  example: "O"
+                npwp:
+                  type: string
+                  example: "12.345.678.9-012.000"
+                email:
+                  type: string
+                  example: "ahmad@mail.com"
+                no_hp:
+                  type: string
+                  example: "081234567890"
+                alamat:
+                  type: string
+                  example: "Jl. Merdeka No. 10, Ampana"
+      responses:
+        '201':
+          description: Pegawai baru berhasil ditambahkan
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: NIP pegawai sudah ada
+
+  /api/pegawai/referensi/identitas:
+    get:
+      tags:
+        - Pegawai
+      summary: Master referensi identitas pegawai
+      description: Mengambil daftar agama, status perkawinan, jenis kelamin, kedudukan PNS, dan status PNS.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Data referensi identitas berhasil diambil
+
+  /api/pegawai/stats:
+    get:
+      tags:
+        - Pegawai
+      summary: Statistik global pegawai ASN
+      description: Mengambil ringkasan statistik total ASN, PNS aktif, sebaran golongan, jenis kelamin, dan jabatan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Statistik berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/pegawai/migration-stats:
+    get:
+      tags:
+        - Pegawai
+      summary: Statistik migrasi jabatan
+      description: Mengambil ringkasan statistik perbandingan jabatan lama dan jabatan baru setelah migrasi Perpres.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Statistik migrasi berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/pegawai/duk:
+    get:
+      tags:
+        - Pegawai
+      summary: Laporan Daftar Urut Kepangkatan (DUK)
+      description: Mengambil data urutan kepangkatan ASN berdasarkan golongan, eselon, jabatan, masa kerja, dan pendidikan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: unor_id
+          schema:
+            type: integer
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data DUK berhasil diambil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PegawaiListResponse'
+
+  /api/pegawai/duk/export:
+    get:
+      tags:
+        - Pegawai
+      summary: Export Laporan DUK ke Excel
+      description: Menghasilkan dan mendownload file spreadsheet Excel (.xlsx) data Daftar Urut Kepangkatan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: unor_id
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: File Excel DUK berhasil diunduh
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /api/pegawai/referensi/golongan:
+    get:
+      tags:
+        - Pegawai
+      summary: Daftar referensi master golongan dan jenis KP
+      description: Mengambil daftar opsi referensi golongan (ref_gol) dan jenis KP (ref_jnskp) untuk form input peremajaan riwayat golongan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Daftar referensi berhasil diambil
+
+  /api/pegawai/{id}:
+    get:
+      tags:
+        - Pegawai
+      summary: Detail lengkap profil pegawai ASN
+      description: Mengambil detail profil pegawai mencakup Identitas, Riwayat Jabatan & SK, Riwayat Pendidikan, Riwayat Diklat, dan Perhitungan Masa Kerja.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Pegawai (ta_pegawai.id)
+      responses:
+        '200':
+          description: Detail data pegawai ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PegawaiDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/{id}/identitas:
+    put:
+      tags:
+        - Pegawai
+      summary: Update identitas pegawai
+      description: Memperbarui data identitas pribadi dan kepegawaian ASN secara atomic.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Pegawai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nama:
+                  type: string
+                nipBaru:
+                  type: string
+                nipLama:
+                  type: string
+                nik:
+                  type: string
+                kk:
+                  type: string
+                t4Lhr:
+                  type: string
+                tglLhr:
+                  type: string
+                  format: date
+                jkl_id:
+                  type: string
+                agama_id:
+                  type: string
+                kawin_id:
+                  type: string
+                golDarah:
+                  type: string
+                npwp:
+                  type: string
+                email:
+                  type: string
+                no_hp:
+                  type: string
+                alamat:
+                  type: string
+                karpeg:
+                  type: string
+                taspen:
+                  type: string
+                bpjs:
+                  type: string
+                kedudukanPns_id:
+                  type: integer
+      responses:
+        '200':
+          description: Identitas pegawai berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: NIP baru sudah digunakan oleh pegawai lain
+
+  /api/pegawai/{id}/foto:
+    put:
+      tags:
+        - Pegawai
+      summary: Upload dan perbarui foto profil pegawai
+      description: Mengunggah file foto baru untuk pegawai (JPG/PNG/WebP, max 2MB) dan menghapus foto lama jika ada.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Pegawai
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - foto
+              properties:
+                foto:
+                  type: string
+                  format: binary
+                  description: File foto pegawai (JPG/PNG/WebP, max 2MB)
+      responses:
+        '200':
+          description: Foto pegawai berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Foto pegawai berhasil diperbarui
+                  data:
+                    type: object
+                    properties:
+                      pegawaiId:
+                        type: string
+                      foto:
+                        type: string
+                        example: storage/profile-foto/foto-pegawai-123-1718000000000.jpg
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus foto profil pegawai
+      description: Menghapus file foto pegawai dan mengatur foto menjadi null.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Pegawai
+      responses:
+        '200':
+          description: Foto pegawai berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/{id}/riwayat-golongan:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat golongan pegawai
+      description: Menambahkan riwayat kenaikan pangkat / golongan baru untuk pegawai. Jika merupakan TMT terbaru, otomatis mensinkronkan golongan aktif pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Pegawai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gol_id
+                - tglSk
+                - tmtSk
+              properties:
+                gol_id:
+                  type: string
+                  example: "41"
+                sk:
+                  type: string
+                  example: "823/123/BKPSDM/2024"
+                tglSk:
+                  type: string
+                  format: date
+                  example: "2024-03-15"
+                tmtSk:
+                  type: string
+                  format: date
+                  example: "2024-04-01"
+                maskerThn:
+                  type: string
+                  example: "12"
+                maskerBln:
+                  type: string
+                  example: "6"
+                pertekBkn:
+                  type: string
+                  example: "PK-12345/BKN/2024"
+                tglPertek:
+                  type: string
+                  format: date
+                  example: "2024-03-01"
+                jnsKp_id:
+                  type: integer
+                  example: 1
+                gapok:
+                  type: integer
+                  example: 3500000
+                pengesahan:
+                  type: string
+                  example: "Bupati"
+      responses:
+        '201':
+          description: Riwayat golongan berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-golongan/{rwtGolId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat golongan pegawai
+      description: Memperbarui data riwayat golongan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtGolId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat golongan berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat golongan pegawai
+      description: Menghapus data riwayat golongan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtGolId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat golongan berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/{id}/riwayat-kgb:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat KGB pegawai
+      description: Menambahkan data riwayat kenaikan gaji berkala (KGB) baru untuk pegawai beserta opsi unggah dokumen SK PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - tglSk
+                - tmtSk
+                - gapok
+              properties:
+                dokumen_sk:
+                  type: string
+                  format: binary
+                gol_id:
+                  type: string
+                  example: "41"
+                sk:
+                  type: string
+                  example: "822/01/KGB/2024"
+                tglSk:
+                  type: string
+                  format: date
+                  example: "2024-03-15"
+                tmtSk:
+                  type: string
+                  format: date
+                  example: "2024-04-01"
+                maskerThn:
+                  type: string
+                  example: "12"
+                maskerBln:
+                  type: string
+                  example: "0"
+                gapok:
+                  type: integer
+                  example: 3650000
+                pengesahan:
+                  type: string
+                  example: "Kepala Dinas"
+      responses:
+        '201':
+          description: Riwayat KGB berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-kgb/{rwtKgbId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat KGB pegawai
+      description: Memperbarui data riwayat kenaikan gaji berkala (KGB) tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtKgbId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat KGB berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat KGB pegawai
+      description: Menghapus data riwayat kenaikan gaji berkala (KGB) tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtKgbId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat KGB berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/referensi/jabatan:
+    get:
+      tags:
+        - Pegawai
+      summary: Referensi Master Jabatan & Unor
+      description: Mengambil data referensi jenis jabatan, unit kerja induk, eselon, jenis mutasi, dan daftar jabatan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Data referensi berhasil diambil
+
+  /api/pegawai/{id}/riwayat-jabatan:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat jabatan pegawai
+      description: Menambahkan data riwayat jabatan & penugasan baru untuk pegawai beserta opsi unggah berkas SK PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - unorInduk_id
+                - tglSk
+                - tmtSk
+              properties:
+                dokumen_sk:
+                  type: string
+                  format: binary
+                jnsJab_id:
+                  type: string
+                nmJab_id:
+                  type: string
+                unorInduk_id:
+                  type: string
+                eselon_id:
+                  type: string
+                jnsMutasi_id:
+                  type: string
+                sk:
+                  type: string
+                  example: "821.2/100/BKPSDM/2024"
+                tglSk:
+                  type: string
+                  format: date
+                  example: "2024-03-15"
+                tmtSk:
+                  type: string
+                  format: date
+                  example: "2024-04-01"
+                tmtPelantikan:
+                  type: string
+                  format: date
+                pengesahan:
+                  type: string
+                  example: "Bupati"
+      responses:
+        '201':
+          description: Riwayat jabatan berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-jabatan/{rwtJabId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat jabatan pegawai
+      description: Memperbarui data riwayat jabatan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtJabId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat jabatan berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat jabatan pegawai
+      description: Menghapus data riwayat jabatan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtJabId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat jabatan berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/referensi/pendidikan:
+    get:
+      tags:
+        - Pegawai
+      summary: Referensi Master Tingkat Pendidikan & Jurusan
+      description: Mengambil data referensi tingkat pendidikan (ref_tktpend) dan daftar program studi (ref_pend).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: tktpend_id
+          schema:
+            type: string
+          description: Filter program studi berdasarkan tingkat pendidikan tertentu
+      responses:
+        '200':
+          description: Data referensi pendidikan berhasil diambil
+
+  /api/pegawai/{id}/riwayat-pendidikan:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat pendidikan pegawai
+      description: Menambahkan data riwayat pendidikan formal baru untuk pegawai beserta opsi unggah berkas Ijazah PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - tktPend_id
+                - nmSekolah
+              properties:
+                dokumen_ijazah:
+                  type: string
+                  format: binary
+                dokumen_transkrip:
+                  type: string
+                  format: binary
+                tktPend_id:
+                  type: integer
+                  example: 8
+                nmSekolah:
+                  type: string
+                  example: "Universitas Tadulako"
+                jurusan:
+                  type: string
+                  example: "Teknik Informatika"
+                thnLulus:
+                  type: string
+                  example: "2018"
+                noIjazah:
+                  type: string
+                  example: "1234/UN28/S1/2018"
+                tglIjazah:
+                  type: string
+                  format: date
+                  example: "2018-08-20"
+                gd:
+                  type: string
+                  example: ""
+                gb:
+                  type: string
+                  example: "S.Kom"
+                pengesahan:
+                  type: string
+                  example: "Rektor"
+      responses:
+        '201':
+          description: Riwayat pendidikan berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-pendidikan/{rwtPendId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat pendidikan pegawai
+      description: Memperbarui data riwayat pendidikan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtPendId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat pendidikan berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat pendidikan pegawai
+      description: Menghapus data riwayat pendidikan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtPendId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat pendidikan berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/referensi/diklat:
+    get:
+      tags:
+        - Pegawai
+      summary: Referensi Master Jenis & Jenjang Diklat
+      description: Mengambil data referensi jenis diklat (ref_jnsdiklat) dan jenjang diklat (ref_jenjangdiklat).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Data referensi diklat berhasil diambil
+
+  /api/pegawai/{id}/riwayat-diklat:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat diklat pegawai
+      description: Menambahkan data riwayat pelatihan / diklat pegawai beserta opsi unggah sertifikat STTPL PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - nmDiklat
+              properties:
+                dokumen_diklat:
+                  type: string
+                  format: binary
+                nmDiklat:
+                  type: string
+                  example: "Pelatihan Kepemimpinan Pengawas"
+                jnsDiklat_id:
+                  type: string
+                  example: "95ac1653-4c3c-4e89-8a98-35fd77c29696"
+                jenjangDiklat_id:
+                  type: string
+                  example: "721bdedf-6fd2-492a-8d85-6f8bc1b94fd6"
+                noSertifikat:
+                  type: string
+                  example: "123/STTPL/2023"
+                tglSertifikat:
+                  type: string
+                  format: date
+                  example: "2023-05-15"
+                penyelenggara:
+                  type: string
+                  example: "BPSDM Provinsi Sulawesi Tengah"
+                angkatan:
+                  type: string
+                  example: "IV"
+                t4pelaksanaan:
+                  type: string
+                  example: "Palu"
+      responses:
+        '201':
+          description: Riwayat diklat berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-diklat/{rwtDiklatId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat diklat pegawai
+      description: Memperbarui data riwayat diklat tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtDiklatId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat diklat berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat diklat pegawai
+      description: Menghapus data riwayat diklat tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtDiklatId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat diklat berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/referensi/profesi:
+    get:
+      tags:
+        - Pegawai
+      summary: Referensi Master Jenis Profesi
+      description: Mengambil data referensi jenis profesi (ref_jns_profesi).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Data referensi profesi berhasil diambil
+
+  /api/pegawai/{id}/riwayat-profesi:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat profesi pegawai
+      description: Menambahkan data riwayat profesi / sertifikasi keahlian / STR pegawai beserta opsi unggah berkas sertifikat PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - jns_profesi_id
+                - no_sertifikat
+                - tgl_lulus
+              properties:
+                dokumen_profesi:
+                  type: string
+                  format: binary
+                jns_profesi_id:
+                  type: string
+                  example: "2962104e-79c3-4326-8027-40bae3bd7b5b"
+                no_sertifikat:
+                  type: string
+                  example: "STR-12345678"
+                tgl_lulus:
+                  type: string
+                  format: date
+                  example: "2021-08-20"
+                berlaku:
+                  type: string
+                  example: "2026"
+                ket:
+                  type: string
+                  example: "Sertifikat Kompetensi Perawat Tingkat Utama"
+      responses:
+        '201':
+          description: Riwayat profesi berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-profesi/{rwtProfesiId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat profesi pegawai
+      description: Memperbarui data riwayat profesi tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtProfesiId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat profesi berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat profesi pegawai
+      description: Menghapus data riwayat profesi tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtProfesiId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat profesi berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/referensi/hukdis:
+    get:
+      tags:
+        - Pegawai
+      summary: Referensi Master Tingkat & Jenis Hukuman Disiplin
+      description: Mengambil data referensi tingkat hukuman (ref_tkthukuman) dan jenis hukuman disiplin (ref_jnshukuman).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Data referensi hukdis berhasil diambil
+
+  /api/pegawai/{id}/riwayat-hukdis:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah riwayat hukuman disiplin pegawai
+      description: Menambahkan data rekam jejak hukuman disiplin pegawai beserta unggah berkas SK Hukdis PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - tktHukuman_id
+                - jnsHukuman_id
+                - skHd
+                - tglSkHd
+                - tmtSkHd
+                - tglAkhirHukuman
+                - alasanHukuman
+              properties:
+                dokumen_sk:
+                  type: string
+                  format: binary
+                tktHukuman_id:
+                  type: string
+                  example: "4c1c72b4-c207-441f-ba07-7b56240ea267"
+                jnsHukuman_id:
+                  type: string
+                  example: "90f6b354-0663-42f2-bbd4-1c2dee8e171d"
+                skHd:
+                  type: string
+                  example: "862.1/154/BKPSDMD-B.TU/2020"
+                tglSkHd:
+                  type: string
+                  format: date
+                  example: "2020-06-29"
+                tmtSkHd:
+                  type: string
+                  format: date
+                  example: "2020-06-29"
+                masaHukumanThn:
+                  type: string
+                  example: "1"
+                masaHukumanBln:
+                  type: string
+                  example: "0"
+                tglAkhirHukuman:
+                  type: string
+                  format: date
+                  example: "2021-06-29"
+                gol_id:
+                  type: integer
+                  example: 41
+                noPP:
+                  type: string
+                  example: "Peraturan Pemerintah 53 Tahun 2010"
+                alasanHukuman:
+                  type: string
+                  example: "Telah melakukan perbuatan yang melanggar ketentuan Pasal 3 angka 11"
+                ket:
+                  type: string
+                  example: "Bupati Tojo Una-Una"
+      responses:
+        '201':
+          description: Riwayat hukuman disiplin berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-hukdis/{rwtHukdisId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update riwayat hukuman disiplin pegawai
+      description: Memperbarui data riwayat hukuman disiplin tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtHukdisId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat hukuman disiplin berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus riwayat hukuman disiplin pegawai
+      description: Menghapus data riwayat hukuman disiplin tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtHukdisId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Riwayat hukuman disiplin berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/{id}/riwayat-ortu:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah data riwayat orang tua pegawai
+      description: Menambahkan data orang tua kandung atau mertua pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hubungan
+                - nama
+                - t4Lhr
+                - tglLhr
+              properties:
+                hubungan:
+                  type: string
+                  example: "Ayah"
+                  enum: ["Ayah", "Ibu", "Ayah Mertua", "Ibu Mertua"]
+                nama:
+                  type: string
+                  example: "SYAMSUL DG.BADO"
+                nik:
+                  type: string
+                  example: "7371110302720003"
+                t4Lhr:
+                  type: string
+                  example: "AMPANA"
+                tglLhr:
+                  type: string
+                  format: date
+                  example: "1972-02-03"
+                jkl_id:
+                  type: string
+                  example: "1"
+                pns:
+                  type: boolean
+                  example: false
+                alamat:
+                  type: string
+                  example: "JL. PACCERAKKANG KEC. BIRING KANAYA"
+                no_hp:
+                  type: string
+                  example: "081234567890"
+      responses:
+        '201':
+          description: Data orang tua berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-ortu/{rwtOrtuId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update data riwayat orang tua pegawai
+      description: Memperbarui data orang tua tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtOrtuId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data orang tua berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus data riwayat orang tua pegawai
+      description: Menghapus data orang tua tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtOrtuId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data orang tua berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/{id}/riwayat-pasangan:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah data riwayat pasangan pegawai (Suami / Istri)
+      description: Menambahkan data riwayat pasangan baru ke pegawai dan sinkronisasi ke tabel ta_orang.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hubungan
+                - nama
+                - t4Lhr
+                - tglLhr
+              properties:
+                orang_id:
+                  type: string
+                hubungan:
+                  type: string
+                  example: "Istri"
+                  enum: ["Suami", "Istri"]
+                nama:
+                  type: string
+                  example: "MARDIANA DAHLAN"
+                nik:
+                  type: string
+                  example: "7209055605850001"
+                t4Lhr:
+                  type: string
+                  example: "AMPANA"
+                tglLhr:
+                  type: string
+                  format: date
+                  example: "1985-05-26"
+                jkl_id:
+                  type: string
+                  example: "2"
+                pns:
+                  type: boolean
+                  example: true
+                aktaMenikah:
+                  type: string
+                  example: "0155/009/X/2020"
+                tglMenikah:
+                  type: string
+                  format: date
+                  example: "2020-10-22"
+                karisKarsu:
+                  type: string
+                  example: "BA 04085760"
+                aktaCerai:
+                  type: string
+                tglCerai:
+                  type: string
+                  format: date
+                aktaMeninggal:
+                  type: string
+                tglMeninggal:
+                  type: string
+                  format: date
+                npwp:
+                  type: string
+                  example: "12.345.678.9-123.000"
+                alamat:
+                  type: string
+                  example: "JL. TRANS SULAWESI NO. 12"
+                no_hp:
+                  type: string
+                  example: "082291488817"
+      responses:
+        '201':
+          description: Data pasangan berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-pasangan/{rwtSuisId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update data riwayat pasangan pegawai
+      description: Memperbarui data pasangan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtSuisId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data pasangan berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus data riwayat pasangan pegawai
+      description: Menghapus data pasangan tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtSuisId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data pasangan berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/pegawai/{id}/riwayat-anak:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah data riwayat anak pegawai
+      description: Menambahkan data anak baru untuk pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - sAnak
+                - nama
+                - t4Lhr
+                - tglLhr
+                - jkl_id
+              properties:
+                orang_id:
+                  type: string
+                ortu_id:
+                  type: string
+                sAnak:
+                  type: string
+                  example: Kandung
+                nama:
+                  type: string
+                  example: MUHAMMAD PIJAR
+                nik:
+                  type: string
+                t4Lhr:
+                  type: string
+                  example: AMPANA
+                tglLhr:
+                  type: string
+                  format: date
+                jkl_id:
+                  type: string
+                  enum: ["1", "2"]
+                pns:
+                  type: boolean
+                alamat:
+                  type: string
+                no_hp:
+                  type: string
+                dokumen_sk:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Data anak berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/riwayat-anak/{rwtAnakId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update data riwayat anak pegawai
+      description: Memperbarui data anak tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtAnakId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data anak berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus data riwayat anak pegawai
+      description: Menghapus data anak tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: rwtAnakId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data anak berhasil dihapus
+  /api/pegawai/{id}/cpns-pns:
+    post:
+      tags:
+        - Pegawai
+      summary: Tambah data riwayat CPNS / PNS pegawai
+      description: Menambahkan data penetapan CPNS atau PNS baru untuk pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - spns_id
+                - sk
+                - tglsk
+                - tmtsk
+              properties:
+                spns_id:
+                  type: string
+                  example: "1"
+                sk:
+                  type: string
+                  example: "821.2/062/BKPSDMD-B.TU/2020"
+                tglsk:
+                  type: string
+                  format: date
+                tmtsk:
+                  type: string
+                  format: date
+                gol_id:
+                  type: integer
+                maskerThn:
+                  type: string
+                maskerBln:
+                  type: string
+                pertekBkn:
+                  type: string
+                tglPertekBkn:
+                  type: string
+                  format: date
+                sttpl:
+                  type: string
+                tglsttpl:
+                  type: string
+                  format: date
+                noKarpeg:
+                  type: string
+                tglKarpeg:
+                  type: string
+                  format: date
+                penanda_tangan:
+                  type: string
+                dokumen_sk:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Data CPNS/PNS berhasil ditambahkan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pegawai/{id}/cpns-pns/{cpnsPnsId}:
+    put:
+      tags:
+        - Pegawai
+      summary: Update data riwayat CPNS / PNS pegawai
+      description: Memperbarui data penetapan CPNS atau PNS tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cpnsPnsId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data CPNS/PNS berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags:
+        - Pegawai
+      summary: Hapus data riwayat CPNS / PNS pegawai
+      description: Menghapus data penetapan CPNS atau PNS tertentu milik pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: cpnsPnsId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data CPNS/PNS berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==========================================
+  # REF JABATAN
+  # ==========================================
+  /api/ref-jabatan:
+    get:
+      tags:
+        - Ref Jabatan
+      summary: Daftar Master Jabatan
+      description: Mengambil daftar master jabatan (ref_jabatan) dengan pagination dan search.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jabatan/fungsional:
+    get:
+      tags:
+        - Ref Jabatan
+      summary: Daftar Jabatan Fungsional
+      description: Mengambil data referensi jabatan fungsional (ref_jabf).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jabatan/pelaksana:
+    get:
+      tags:
+        - Ref Jabatan
+      summary: Daftar Jabatan Pelaksana
+      description: Mengambil data referensi jabatan pelaksana (ref_jabpel).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jabatan/jenjang:
+    get:
+      tags:
+        - Ref Jabatan
+      summary: Daftar Jenjang Jabatan
+      description: Mengambil data referensi jenjang jabatan fungsional (ref_jenjang_jab).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jabatan/jenis:
+    get:
+      tags:
+        - Ref Jabatan
+      summary: Daftar Jenis Jabatan
+      description: Mengambil data referensi jenis jabatan (Struktural, JFT, JFU).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jabatan/lama:
+    get:
+      tags:
+        - Ref Jabatan
+      summary: Daftar Nama Jabatan Lama
+      description: Mengambil referensi kamus nama jabatan sebelum konversi Permenpan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  # ==========================================
+  # REF UNIT ORGANISASI (UNOR)
+  # ==========================================
+  /api/ref-unor/migration-stats:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Statistik Migrasi Unit Organisasi
+      description: Mengambil perbandingan jumlah data 4 tabel lama vs tabel tunggal ref_unitorganisasi.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/migrate:
+    post:
+      tags:
+        - Ref Unit Organisasi
+      summary: Eksekusi Migrasi Unit Organisasi
+      description: Menjalankan ETL konsolidasi 4 tabel ke ref_unitorganisasi secara atomic transaction.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/tree:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Tree Hierarchy Unit Organisasi
+      description: Mengambil struktur hierarki pohon unit organisasi lengkap dari Unor Induk hingga Sub Unor.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/induk:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Daftar Unor Induk
+      description: Mengambil daftar unit organisasi induk (SKPD / Dinas / Badan / Kantor).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/sub:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Daftar Sub Unit Organisasi (Bidang / Bagian)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/sub-sub:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Daftar Sub Sub Unit Organisasi (Seksi / Subbag)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Daftar Master Unor
+      description: Mengambil daftar master referensi unor.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  # ==========================================
+  # REF PENDIDIKAN
+  # ==========================================
+  /api/ref-pendidikan:
+    get:
+      tags:
+        - Ref Pendidikan
+      summary: Daftar Referensi Pendidikan
+      description: Mengambil daftar program studi / jurusan pendidikan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-pendidikan/tingkat:
+    get:
+      tags:
+        - Ref Pendidikan
+      summary: Daftar Tingkat Pendidikan (SD, SMP, SMA, S1, S2, S3)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  # ==========================================
+  # REF DIKLAT
+  # ==========================================
+  /api/ref-diklat/jenis:
+    get:
+      tags:
+        - Ref Diklat
+      summary: Daftar Jenis Diklat
+      description: Mengambil data jenis pelatihan & diklat (Struktural, Teknis, Fungsional).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-diklat/jenjang:
+    get:
+      tags:
+        - Ref Diklat
+      summary: Daftar Jenjang Diklat
+      description: Mengambil jenjang kepemimpinan (Pim I, Pim II, Pim III, Pim IV / PKN, PKA, PKP).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  # ==========================================
+  # REF KEDUDUKAN PNS, MUTASI, HUKUMAN, INSTANSI
+  # ==========================================
+  /api/ref-kedudukan-pns:
+    get:
+      tags:
+        - Ref Kedudukan PNS
+      summary: Daftar Status Kedudukan PNS
+      description: Mengambil master referensi status kedudukan PNS (Aktif, Cuti, Tugas Belajar, dll).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jns-mutasi:
+    get:
+      tags:
+        - Ref Jenis Mutasi
+      summary: Daftar Jenis Mutasi
+      description: Mengambil master jenis mutasi kepegawaian (Kenaikan Pangkat, Pindah Instansi, dll).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jns-hukuman:
+    get:
+      tags:
+        - Ref Jenis Hukuman
+      summary: Daftar Jenis Hukuman Disiplin
+      description: Mengambil master jenis hukuman disiplin ASN (Ringan, Sedang, Berat).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-jns-hukuman/tkt-lookup:
+    get:
+      tags:
+        - Ref Jenis Hukuman
+      summary: Lookup Tingkat Hukuman
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-instansi:
+    get:
+      tags:
+        - Ref Instansi
+      summary: Daftar Referensi Instansi
+      description: Mengambil master data kementerian / lembaga / pemerintah daerah.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  # ==========================================
+  # DB ANALYSIS
+  # ==========================================
+  /api/db-analysis:
+    get:
+      tags:
+        - DB Analysis
+      summary: Diagnostik skema & data database
+      description: Mengambil laporan jumlah record tiap tabel, anomali foreign key, dan integritas data.
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Masukkan token JWT pada header Authorization (Bearer <token>)
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: Otentikasi otomatis melalui httpOnly Cookie 'token'
+
+  responses:
+    SuccessResponse:
+      description: Operasi berhasil
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiResponse'
+    BadRequestError:
+      description: Request tidak valid / format salah (400)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnauthorizedError:
+      description: Token tidak ada / tidak valid / expired (401)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ForbiddenError:
+      description: Tidak memiliki hak akses ke resource ini (403)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFoundError:
+      description: Data atau endpoint tidak ditemukan (404)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ConflictError:
+      description: Data duplikat / unique constraint violation (409)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Validasi input gagal (422)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    RateLimitError:
+      description: Terlalu banyak request, rate limit tercapai (429)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Operasi berhasil
+        data:
+          type: object
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 10
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 404
+        message:
+          type: string
+          example: Data tidak ditemukan
+        errors:
+          nullable: true
+          example: null
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 422
+        message:
+          type: string
+          example: Validasi gagal
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: Format email tidak valid
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          format: password
+          example: Admin@123
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Login berhasil
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserResponse'
+            token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Administrator
+        username:
+          type: string
+          example: admin
+        email:
+          type: string
+          example: admin@sipasn.local
+        role:
+          type: string
+          example: super admin
+        photo:
+          type: string
+          nullable: true
+          example: /storage/photos/avatar.png
+
+    UserDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Data pengguna berhasil diambil
+        data:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Data pengguna berhasil diambil
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    CreateUserRequest:
+      type: object
+      required:
+        - name
+        - username
+        - email
+        - password
+        - role_id
+      properties:
+        name:
+          type: string
+          example: Abd. Rifai
+        username:
+          type: string
+          example: rifai
+        email:
+          type: string
+          format: email
+          example: rifai@sipasn.local
+        password:
+          type: string
+          format: password
+          example: SecretPassword123
+        role_id:
+          type: integer
+          example: 2
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Abd. Rifai Updated
+        username:
+          type: string
+          example: rifai
+        email:
+          type: string
+          format: email
+          example: rifai@sipasn.local
+        password:
+          type: string
+          format: password
+          example: NewSecretPassword123
+        role_id:
+          type: integer
+          example: 2
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Abd. Rifai
+        email:
+          type: string
+          format: email
+          example: rifai@sipasn.local
+        username:
+          type: string
+          example: rifai
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+
+    PegawaiListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        nama:
+          type: string
+          example: DRS. H. AHMAD FAUZI, M.SI
+        nip:
+          type: string
+          example: "197508122000031002"
+        jabatan:
+          type: string
+          example: Kepala Badan Kepegawaian dan Pengembangan SDM
+        golongan:
+          type: string
+          example: IV/b
+        pangkat:
+          type: string
+          example: Pembina Tingkat I
+        unit_kerja:
+          type: string
+          example: Badan Kepegawaian dan Pengembangan SDM
+        foto:
+          type: string
+          nullable: true
+          example: /storage/photos/pegawai_123.jpg
+
+    PegawaiListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Data pegawai berhasil diambil
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PegawaiListItem'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PegawaiDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Detail data pegawai berhasil diambil
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 123
+            nipBaru:
+              type: string
+              example: "197508122000031002"
+            masa_kerja_golongan:
+              type: string
+              example: 18 Tahun 4 Bulan
+            masa_kerja_saat_ini:
+              type: string
+              example: 24 Tahun 11 Bulan
+            ta_orang:
+              type: object
+              properties:
+                nama:
+                  type: string
+                  example: DRS. H. AHMAD FAUZI, M.SI
+                nik:
+                  type: string
+                  example: "3201010101750001"
+                t4Lhr:
+                  type: string
+                  example: Bandung
+                tglLhr_formatted:
+                  type: string
+                  example: 12 Agustus 1975
+                jkl_nama:
+                  type: string
+                  example: Laki-laki
+                agama_nama:
+                  type: string
+                  example: Islam
+                kawin_nama:
+                  type: string
+                  example: Kawin
+                npwp:
+                  type: string
+                  example: "09.123.456.7-401.000"
+                no_hp:
+                  type: string
+                  example: "08123456789"
+                email:
+                  type: string
+                  example: ahmad.fauzi@sipasn.local
+                alamat:
+                  type: string
+                  example: Jl. Pahlawan No. 45
+            rwt_jabatan:
+              type: object
+            rwt_gol:
+              type: object
+            rwt_pend:
+              type: object
+            rwt_diklat:
+              type: object

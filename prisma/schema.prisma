@@ -1,0 +1,915 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model users {
+  id                 BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  username           String    @db.VarChar(255)
+  nik                String?   @db.VarChar(255)
+  nama_lengkap       String    @db.VarChar(255)
+  email              String?   @db.VarChar(255)
+  email_verified_at  DateTime? @db.Timestamp(0)
+  password           String    @db.VarChar(255)
+  remember_token     String?   @db.VarChar(100)
+  current_team_id    BigInt?   @db.UnsignedBigInt
+  profile_photo_path String?   @db.Text
+  unorinduk_id       String?   @db.VarChar(100)
+  created_at         DateTime? @db.Timestamp(0)
+  updated_at         DateTime? @updatedAt @db.Timestamp(0)
+  status_edit        Int?      @db.TinyInt
+  is_deleted         Boolean?  @default(false)
+}
+
+model migrations {
+  id        Int    @id @default(autoincrement()) @db.UnsignedInt
+  migration String @db.VarChar(255)
+  batch     Int
+}
+
+model model_has_roles {
+  role_id    BigInt    @db.UnsignedBigInt
+  model_type String    @db.VarChar(255)
+  model_id   BigInt    @db.UnsignedBigInt
+  is_deleted Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  updated_at DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+  roles      roles     @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "model_has_roles_role_id_foreign")
+
+  @@id([role_id, model_id, model_type])
+  @@index([model_id, model_type], map: "model_has_roles_model_id_model_type_index")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model mysapk_aktivasi {
+  NIP      BigInt?
+  NAMA     String? @db.VarChar(36)
+  INSTANSI String? @db.VarChar(28)
+
+  @@ignore
+}
+
+model permissions {
+  id                   BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  name                 String                 @db.VarChar(255)
+  guard_name           String                 @db.VarChar(255)
+  created_at           DateTime?              @db.Timestamp(0)
+  updated_at           DateTime?              @db.Timestamp(0)
+  role_has_permissions role_has_permissions[]
+}
+
+model ref_agama {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  agama      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ref_eselon {
+  id          String        @id @db.Char(36)
+  kode        String        @db.VarChar(255)
+  eselon      String        @db.VarChar(10)
+  eselon_kode Int
+  is_deleted  Boolean       @default(false)
+  created_at  DateTime?     @db.Timestamp(0)
+  updated_at  DateTime?     @updatedAt @db.Timestamp(0)
+  ref_jabatan ref_jabatan[]
+}
+
+model ref_gol {
+  kdGol      String    @id @db.VarChar(2)
+  gol        String    @db.VarChar(5)
+  pangkat    String    @db.VarChar(25)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+
+  rwt_gol rwt_gol[]
+}
+
+model ref_hidup {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  hidup      String    @db.VarChar(10)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_hukdis {
+  id            String    @db.Char(36)
+  pegawai_id    String    @db.Char(36)
+  tktHukuman_id String    @db.Char(36)
+  jnsHukuman_id String    @db.Char(36)
+  gol_id        Int
+  sk            String    @db.VarChar(255)
+  tglSk         DateTime  @db.Date
+  tmtHD         DateTime  @db.Date
+  hukumanThn    String    @db.Char(3)
+  hukumanBln    String    @db.Char(3)
+  akhirHukuman  DateTime  @db.Date
+  noPP          String    @db.VarChar(255)
+  alasan        String    @db.Text
+  ket           String    @db.Text
+  created_at    DateTime? @db.Timestamp(0)
+  updated_at    DateTime? @db.Timestamp(0)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_instansi {
+  id             String          @id @db.Char(36)
+  kode           Int
+  instansi       String          @db.VarChar(255)
+  is_deleted     Boolean         @default(false)
+  created_at     DateTime?       @db.Timestamp(0)
+  updated_at     DateTime?       @updatedAt @db.Timestamp(0)
+  ref_unitorganisasi ref_unitorganisasi[]
+}
+
+model ref_jabatan {
+  id              String               @id @db.Char(36)
+  kode            String?              @db.VarChar(100)
+  nama_jabatan    String               @db.VarChar(255)
+  kategori        String               @db.VarChar(50)
+  jns_jab_id      String?              @db.Char(36)
+  jenjang_jab_id  BigInt?              @db.UnsignedBigInt
+  eselon_id       String?              @db.Char(36)
+  bup             Int?                 @default(58)
+  kelas_jabatan   Int?
+  is_aktif        Int                  @default(1)
+  is_deleted      Boolean              @default(false)
+  created_at      DateTime?            @default(now()) @db.Timestamp(0)
+  updated_at      DateTime?            @default(now()) @updatedAt @db.Timestamp(0)
+
+  ref_eselon          ref_eselon?          @relation(fields: [eselon_id], references: [id])
+  ref_jnsjab          ref_jnsjab?          @relation(fields: [jns_jab_id], references: [id])
+  ref_jenjangjab      ref_jenjangjab?      @relation(fields: [jenjang_jab_id], references: [id])
+  rwt_jabatan         rwt_jabatan[]
+  ref_unitorganisasi  ref_unitorganisasi[]
+
+  @@index([kategori], map: "idx_ref_jabatan_kategori")
+  @@index([nama_jabatan], map: "idx_ref_jabatan_nama")
+  @@index([eselon_id], map: "idx_ref_jabatan_eselon")
+  @@index([jns_jab_id], map: "idx_ref_jabatan_jnsjab")
+}
+
+model ref_jkl {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  jkl        String    @db.VarChar(10)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ref_jns_profesi {
+  id          String        @id @db.Char(36)
+  jns_profesi String        @db.VarChar(255)
+  created_at  DateTime?     @db.Timestamp(0)
+  updated_at  DateTime?     @updatedAt @db.Timestamp(0)
+  rwt_profesi rwt_profesi[]
+}
+
+model ref_jnskp {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  jnskp      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+}
+
+model ref_kawin {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  kawin      String    @db.VarChar(20)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ref_pend {
+  id         String    @id @db.Char(36)
+  tktpend_id BigInt    @db.UnsignedBigInt
+  pend       String    @db.VarChar(255)
+  kode       String?   @db.VarChar(255)
+  is_deleted Boolean   @default(false)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+
+  ref_tktpend ref_tktpend @relation(fields: [tktpend_id], references: [id])
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_penghargaan {
+  id                String    @db.Char(36)
+  jnsPenghargaan_id String    @db.Char(36)
+  penghargaan       String    @db.VarChar(255)
+  created_at        DateTime? @db.Timestamp(0)
+  updated_at        DateTime? @updatedAt @db.Timestamp(0)
+
+  @@ignore
+}
+
+model ref_perubahan_data_induk {
+  id            BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  jns_perubahan String?   @db.VarChar(255)
+  created_at    DateTime? @db.Timestamp(0)
+  updated_at    DateTime? @updatedAt @db.Timestamp(0)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_pindah_instansi {
+  id         String    @db.Char(36)
+  kode       Int?
+  jnsPi      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+
+  @@ignore
+}
+
+model ref_spns {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  spns       String    @db.VarChar(10)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model role_has_permissions {
+  permission_id BigInt      @db.UnsignedBigInt
+  role_id       BigInt      @db.UnsignedBigInt
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_has_permissions_permission_id_foreign")
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "role_has_permissions_role_id_foreign")
+
+  @@id([permission_id, role_id])
+  @@index([role_id], map: "role_has_permissions_role_id_foreign")
+}
+
+model roles {
+  id                   BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  name                 String                 @db.VarChar(255)
+  guard_name           String                 @db.VarChar(255)
+  created_at           DateTime?              @db.Timestamp(0)
+  updated_at           DateTime?              @updatedAt @db.Timestamp(0)
+  is_deleted           Boolean?               @default(false)
+  model_has_roles      model_has_roles[]
+  role_has_permissions role_has_permissions[]
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model rwt_penghargaan {
+  id                String    @db.Char(36)
+  pegawai_id        String    @db.Char(36)
+  jnsPenghargaan_id String    @db.Char(36)
+  penghargaan_id    String    @db.Char(36)
+  nomor             String    @db.VarChar(255)
+  tanggal           DateTime  @db.Date
+  ket               String    @db.VarChar(255)
+  created_at        DateTime? @db.Timestamp(0)
+  updated_at        DateTime? @updatedAt @db.Timestamp(0)
+
+  @@ignore
+}
+
+model rwt_perubahan_data_induk {
+  id               String    @id @db.Char(36)
+  pegawai_id       String    @db.Char(36)
+  jns_perubahan_id Int
+  kedudukanpns_id  Int?
+  sk               String    @db.VarChar(255)
+  tglSk            DateTime  @db.Date
+  tmtSk            DateTime  @db.Date
+  pengesahan       String    @db.VarChar(255)
+  ket              String    @db.Text
+  user_create      Int?
+  user_update      Int?
+  created_at       DateTime? @db.Timestamp(0)
+  updated_at       DateTime? @updatedAt @db.Timestamp(0)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model rwt_pindah_instansi {
+  id              String    @db.Char(36)
+  pegawai_id      String    @db.Char(36)
+  sk              String    @db.VarChar(255)
+  tglsk           DateTime  @db.Date
+  tmtsk           DateTime  @db.Date
+  jnsPI           String    @db.Char(36)
+  pengesahan      String    @db.VarChar(255)
+  jnsJab_lama     String    @db.Char(36)
+  rumpunaJab_lama String    @db.Char(36)
+  jab_lama        String    @db.Char(36)
+  instansi_lama   String    @db.Char(36)
+  jnsunor_lama    String    @db.Char(36)
+  unorinduk_lama  String    @db.Char(36)
+  unor_lama       String    @db.Char(36)
+  subunor_lama    String    @db.Char(36)
+  subunorsub_lama String    @db.Char(36)
+  jnsJab_baru     String    @db.Char(36)
+  rumpunaJab_baru String    @db.Char(36)
+  jab_baru        String    @db.Char(36)
+  instansi_baru   String    @db.Char(36)
+  jnsunor_baru    String    @db.Char(36)
+  unorinduk_baru  String    @db.Char(36)
+  unor_baru       String    @db.Char(36)
+  subunor_baru    String    @db.Char(36)
+  subunorsub_baru String    @db.Char(36)
+  created_at      DateTime? @db.Timestamp(0)
+  updated_at      DateTime? @updatedAt @db.Timestamp(0)
+
+  @@ignore
+}
+
+model rwt_profesi {
+  id              String           @id @db.Char(36)
+  pegawai_id      String           @db.Char(36)
+  jns_profesi_id  String           @db.Char(36)
+  no_sertifikat   String           @db.VarChar(200)
+  ket             String           @db.VarChar(255)
+  tgl_lulus       DateTime         @db.Date
+  berlaku         String?          @db.VarChar(5)
+  created_at      DateTime?        @db.Timestamp(0)
+  updated_at      DateTime?        @updatedAt @db.Timestamp(0)
+  ref_jns_profesi ref_jns_profesi? @relation(fields: [jns_profesi_id], references: [id])
+
+  @@index([pegawai_id], map: "pegawai_id")
+}
+
+model rwt_anak {
+  id         String    @id @db.Char(36)
+  pegawai_id String    @db.Char(36)
+  ortu_id    String?   @db.Char(36)
+  sAnak      String    @db.VarChar(255)
+  orang_id   String    @db.Char(255)
+  pns        Boolean?
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id])
+  @@index([orang_id])
+  @@index([ortu_id])
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model rwt_diklat {
+  id               String    @id @db.Char(36)
+  pegawai_id       String    @db.Char(255)
+  nipBaru          String    @db.VarChar(18)
+  jnsDiklat_id     String?   @db.Char(36)
+  jenjangDiklat_id String?   @db.Char(36)
+  noSertifikat     String?   @db.VarChar(255)
+  tglSertifikat    DateTime? @db.Date
+  nmDiklat         String?   @db.VarChar(255)
+  penyelenggara    String?   @db.VarChar(255)
+  angkatan         String?   @db.VarChar(255)
+  t4pelaksanaan    String?   @db.VarChar(255)
+  created_at       DateTime? @db.Timestamp(0)
+  updated_at       DateTime? @updatedAt @db.Timestamp(0)
+  user_created     Int?
+  user_updated     Int?
+
+  ta_pegawai ta_pegawai?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model rwt_gol {
+  id           String    @id @db.Char(36)
+  pegawai_id   String    @db.Char(36)
+  gol_id       String    @db.Char(2)
+  sk           String?   @db.VarChar(255)
+  tglSk        DateTime  @db.Date
+  tmtSk        DateTime  @db.Date
+  maskerThn    String?   @db.VarChar(255)
+  maskerBln    String?   @db.VarChar(255)
+  pertekBkn    String?   @db.VarChar(255)
+  tglPertek    DateTime? @db.Date
+  jnsKp_id     Int?
+  gapok        Int?
+  pengesahan   String?   @db.VarChar(255)
+  created_at   DateTime? @db.Timestamp(0)
+  updated_at   DateTime? @updatedAt @db.Timestamp(0)
+  user_created Int?
+  user_updated Int?
+
+  ta_pegawai ta_pegawai?
+  ref_gol    ref_gol     @relation(fields: [gol_id], references: [kdGol])
+
+  @@index([pegawai_id], map: "pegawai_id")
+}
+
+model rwt_hukdis {
+  id              String    @id @db.Char(36)
+  pegawai_id      String    @db.Char(36)
+  tktHukuman_id   String    @db.Char(36)
+  jnsHukuman_id   String    @db.Char(36)
+  skHd            String    @db.VarChar(255)
+  tglSkHd         DateTime  @db.Date
+  tmtSkHd         DateTime  @db.Date
+  masaHukumanThn  String    @db.Char(2)
+  masaHukumanBln  String    @db.Char(2)
+  tglAkhirHukuman DateTime  @db.Date
+  gol_id          Int?
+  noPP            String    @db.VarChar(255)
+  alasanHukuman   String    @db.Text
+  ket             String?   @db.Text
+  created_at      DateTime? @db.Timestamp(0)
+  updated_at      DateTime? @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id], map: "pegawai_id")
+}
+
+model rwt_jabatan {
+  id                  String    @id @db.Char(36)
+  pegawai_id          String    @db.Char(36)
+  nipBaru             String    @db.VarChar(19)
+  sk                  String?   @db.VarChar(255)
+  tglSk               DateTime  @db.Date
+  tmtSk               DateTime  @db.Date
+  jnsMutasi_id        String?   @db.Char(36)
+  jnsMutasi_kode      String?   @db.VarChar(255)
+  instansi_id         String    @db.Char(36)
+  instansi_kode       String?   @db.VarChar(255)
+  jnsUnor_id          String    @db.Char(36)
+  jnsUnor_kode        String?   @db.VarChar(255)
+  unorInduk_id        String    @db.Char(36)
+  unorInduk_kode      String?   @db.VarChar(255)
+  unor_id             String?   @db.Char(36)
+  unor_kode           String?   @db.VarChar(255)
+  subUnor_id          String?   @db.Char(36)
+  subUnor_kode        String?   @db.VarChar(255)
+  subUnorSub_id       String?   @db.Char(255)
+  subUnorSub_kode     String?   @db.VarChar(255)
+  jnsJab_id           String?   @db.Char(36)
+  jnsJab_kode         String?   @db.VarChar(255)
+  rumpunJab_id        String?   @db.Char(36)
+  rumpunJab_kode      String?   @db.VarChar(255)
+  nmJab_id            String?   @db.Char(36)
+  nmJab_kode          String?   @db.VarChar(255)
+  eselon_id           String?   @db.Char(36)
+  eselon_kode         String?   @db.VarChar(255)
+  jnsKepegawaian_id   String?   @db.Char(36)
+  jnsKepegawaian_kode String?   @db.VarChar(255)
+  pengesahan          String    @db.VarChar(255)
+  created_at          DateTime? @db.Timestamp(0)
+  updated_at          DateTime? @updatedAt @db.Timestamp(0)
+  user_created        Int?
+  user_updated        Int?
+
+  ref_jabatan         ref_jabatan?         @relation(fields: [nmJab_id], references: [id], map: "rwt_jabatan_ref_jabatan_fkey")
+  ref_unitorganisasi  ref_unitorganisasi?  @relation(fields: [unorInduk_id], references: [id], map: "rwt_jabatan_ref_unitorganisasi_fkey")
+  ref_jnsjab          ref_jnsjab?          @relation(fields: [jnsJab_id], references: [id])
+  ta_pegawai          ta_pegawai?
+
+  @@index([pegawai_id], map: "pegawai_id")
+  @@index([unorInduk_id], map: "unorInduk_id")
+}
+
+model rwt_kgb {
+  id           String    @id @db.Char(36)
+  pegawai_id   String    @db.Char(36)
+  nipBaru      String    @db.VarChar(18)
+  sk           String?   @db.VarChar(255)
+  tglSk        DateTime  @db.Date
+  tmtSk        DateTime? @db.Date
+  gol_id       String?   @db.VarChar(255)
+  maskerThn    String?   @db.Char(2)
+  maskerBln    String?   @db.Char(2)
+  gapok        Int?
+  pengesahan   String?   @db.VarChar(255)
+  created_at   DateTime? @db.Timestamp(0)
+  updated_at   DateTime? @updatedAt @db.Timestamp(0)
+  user_created Int?
+  user_updated Int?
+}
+
+model rwt_ortu {
+  id         String    @id @db.Char(36)
+  pegawai_id String    @db.Char(36)
+  hubungan   String    @db.VarChar(255)
+  orang_id   String    @db.Char(36)
+  pns        Boolean?
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id], map: "pegawai_id")
+  @@index([orang_id], map: "orang_id")
+}
+
+model rwt_pend {
+  id           String    @id @db.Char(36)
+  pegawai_id   String    @db.Char(36)
+  nipBaru      String    @db.VarChar(19)
+  tktPend_id   Int
+  pend_id      String    @db.Char(36)
+  noIjazah     String?   @db.VarChar(255)
+  tglIjazah    DateTime? @db.Date
+  thnLulus     String?   @db.VarChar(255)
+  nmSekolah    String?   @db.VarChar(255)
+  jurusan      String?   @db.VarChar(255)
+  gd           String?   @db.VarChar(10)
+  gb           String?   @db.VarChar(20)
+  pengesahan   String?   @db.VarChar(255)
+  created_at   DateTime? @db.Timestamp(0)
+  updated_at   DateTime? @updatedAt @db.Timestamp(0)
+  user_created Int?
+  user_updated Int?
+
+  ta_pegawai ta_pegawai?
+
+  @@index([pegawai_id], map: "pegawai_id")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model rwt_skp {
+  id                   String   @db.Char(36)
+  pegawai_id           String   @db.Char(36)
+  jnsjab_id            String   @db.Char(36)
+  atasan_pj_penilai_id String?  @db.Char(36)
+  pj_penilai_id        String?  @db.Char(36)
+  tahun                Int
+  nilai_skp            Float
+  op                   Float
+  integritas           Float
+  komitmen             Float
+  disiplin             Float
+  kerjasama            Float
+  kepemimpinan         Float
+  nilai_prestasi       Float
+  sebutan_prestasi     String   @db.VarChar(255)
+  user_create          BigInt?
+  user_update          BigInt?
+  created_at           DateTime @default(now()) @db.Timestamp(0)
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  pp_kinerja           String   @db.VarChar(200)
+  inisiatif_kerja      Float
+
+  @@ignore
+}
+
+model sessions {
+  id            String  @id @db.VarChar(255)
+  user_id       BigInt? @db.UnsignedBigInt
+  ip_address    String? @db.VarChar(45)
+  user_agent    String? @db.Text
+  payload       String  @db.Text
+  last_activity Int
+
+  @@index([last_activity], map: "sessions_last_activity_index")
+  @@index([user_id], map: "sessions_user_id_index")
+}
+
+model ta_arsip {
+  id          String    @id @db.Char(36)
+  pegawai_id  String    @db.Char(36)
+  from        String    @db.Char(36)
+  jnsarsip_id Int
+  arsip       String    @db.VarChar(255)
+  created_at  DateTime? @db.Timestamp(0)
+  updated_at  DateTime? @updatedAt @db.Timestamp(0)
+  cek         Int?
+}
+
+model ta_arsip_keluarga {
+  id         String    @id @db.Char(36)
+  pegawai_id String    @db.Char(36)
+  from       String    @db.VarChar(255)
+  jns_arsip  String    @db.VarChar(255)
+  arsip      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ta_orang {
+  id             String    @id @db.Char(36)
+  nik            String?   @db.VarChar(19)
+  kk             String?   @db.VarChar(25)
+  npwp           String?   @db.VarChar(25)
+  nama           String    @db.VarChar(200)
+  t4Lhr          String    @db.VarChar(200)
+  tglLhr         DateTime  @db.Date
+  jkl_id         String    @db.Char(36)
+  agama_id       String?   @db.Char(36)
+  kawin_id       String?   @db.Char(36)
+  golDarah       String?   @db.VarChar(2)
+  alamat         String?   @db.VarChar(255)
+  foto           String?   @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @updatedAt @db.Timestamp(0)
+  hidup_id       String?   @db.Char(36)
+  email          String?   @db.VarChar(200)
+  no_hp          String?   @db.VarChar(15)
+  akte_kelahiran String?   @db.VarChar(200)
+
+  ta_pegawai ta_pegawai?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ta_pegawai {
+  id              String    @id @db.Char(36)
+  orang_id        String    @unique @db.Char(36)
+  nik             String?   @db.VarChar(19)
+  nipBaru         String    @db.VarChar(18)
+  nipLama         String?   @db.VarChar(9)
+  kedudukanPns_id Int?
+  spns_id         Int?
+  karpeg          String?   @db.VarChar(100)
+  taspen          String?   @db.VarChar(100)
+  bpjs            String?   @db.VarChar(100)
+  created_at      DateTime? @db.Timestamp(0)
+  updated_at      DateTime? @updatedAt @db.Timestamp(0)
+  rwtJab_id       String?   @unique @db.Char(36)
+  rwtGol_id       String?   @unique @db.Char(36)
+  rwtPend_id      String?   @unique @db.Char(36)
+  rwtDiklat_id    String?   @unique @db.Char(36)
+  spmt            String?   @db.VarChar(100)
+  pns_id_sapk     String?   @db.Char(36)
+
+  ta_orang    ta_orang     @relation(fields: [orang_id], references: [id])
+  rwt_gol     rwt_gol?     @relation(fields: [rwtGol_id], references: [id])
+  rwt_jabatan rwt_jabatan? @relation(fields: [rwtJab_id], references: [id])
+  rwt_pend    rwt_pend?    @relation(fields: [rwtPend_id], references: [id])
+  rwt_diklat  rwt_diklat?  @relation(fields: [rwtDiklat_id], references: [id])
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ta_sinkron_sapk {
+  id          String    @db.Char(36)
+  pns_id_sapk String    @db.Char(36)
+  nip         String    @db.Char(36)
+  nama        Boolean
+  tgl_lhr     Boolean
+  gol         Boolean
+  jab         Boolean
+  unorinduk   Boolean
+  unor        Boolean
+  status      String?   @db.VarChar(255)
+  created_at  DateTime? @db.Timestamp(0)
+  updated_at  DateTime? @updatedAt @db.Timestamp(0)
+
+  @@ignore
+}
+
+
+
+
+model ref_jabpelaksana_suburusan {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  urusan_id  Int
+  suburusan  String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+}
+
+model ref_jabpelaksana_urusan {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  urusan     String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jenjangdiklat {
+  id            String    @id @db.Char(36)
+  jnsDiklat_id  String    @db.Char(36)
+  kode          String    @db.VarChar(5)
+  jenjangDiklat String    @db.VarChar(255)
+  is_deleted    Boolean   @default(false)
+  created_at    DateTime? @db.Timestamp(0)
+  updated_at    DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ref_jenjangjab {
+  id          BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
+  jnsjab_id   Int
+  jenjangjab  String        @db.VarChar(255)
+  is_deleted  Boolean       @default(false)
+  created_at  DateTime?     @db.Timestamp(0)
+  updated_at  DateTime?     @db.Timestamp(0)
+  ref_jabatan ref_jabatan[]
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jnsdiklat {
+  id         String    @id @db.Char(36)
+  kode       String    @db.VarChar(5)
+  jnsDiklat  String    @db.VarChar(255)
+  is_deleted Boolean   @default(false)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ref_jnshukuman {
+  id            String    @id @db.Char(36)
+  kode          Int       @unique(map: "ref_jnshukuman_kode_unique")
+  tktHukuman_id String    @db.Char(36)
+  jnsHukuman    String    @db.VarChar(255)
+  is_deleted    Boolean   @default(false)
+  created_at    DateTime? @db.Timestamp(0)
+  updated_at    DateTime? @updatedAt @db.Timestamp(0)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jnsjab {
+  id          String        @id @db.Char(36)
+  kode        String        @db.VarChar(10)
+  jnsjab      String        @db.VarChar(255)
+  kode_sapk   Int?
+  is_deleted  Boolean       @default(false)
+  created_at  DateTime?     @db.Timestamp(0)
+  updated_at  DateTime?     @db.Timestamp(0)
+  rwt_jabatan rwt_jabatan[]
+  ref_jabatan ref_jabatan[]
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jnskepegawaian {
+  id             String    @db.Char(36)
+  kode           String    @db.VarChar(255)
+  jnskepegawaian String    @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @db.Timestamp(0)
+
+  @@ignore
+}
+
+model ref_jnsmutasi {
+  id         String    @id @db.Char(36)
+  kode       Int
+  jnsMutasi  String    @db.VarChar(255)
+  is_deleted Boolean   @default(false)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jnspenghargaan {
+  id             String    @db.Char(36)
+  jnsPenghargaan String    @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @db.Timestamp(0)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jnsrumpunjab {
+  id             String    @db.Char(36)
+  kode           String    @db.VarChar(255)
+  jnsRumpunJab   String    @db.VarChar(255)
+  rumpunJab_id   String    @db.Char(36)
+  rumpunJab_kode String    @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @db.Timestamp(0)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_jnsunor {
+  id          String   @id @db.Char(36)
+  instansi_id String   @db.Char(36)
+  kode        Int
+  jnsunor     String   @db.VarChar(255)
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime? @db.Timestamp(0)
+  updated_at  DateTime? @db.Timestamp(0)
+}
+
+model ref_kedudukanpns {
+  id           BigInt    @id @default(autoincrement())
+  kedudukanpns String    @db.VarChar(255)
+  is_deleted   Boolean   @default(false)
+  created_at   DateTime? @db.Timestamp(0)
+  updated_at   DateTime? @updatedAt @db.Timestamp(0)
+}
+
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ref_rumpunjab {
+  id          String    @db.Char(36)
+  kode        String?   @db.VarChar(10)
+  rumpunJab   String    @db.VarChar(255)
+  jnsJab_id   String    @db.Char(36)
+  jnsJab_kode String    @db.VarChar(255)
+  created_at  DateTime? @db.Timestamp(0)
+  updated_at  DateTime? @db.Timestamp(0)
+
+  @@ignore
+}
+
+model ref_tkthukuman {
+  id         String    @id @db.Char(36)
+  kode       Int       @unique(map: "ref_tkthukuman_kode_unique")
+  tktHukuman String    @db.VarChar(255)
+  is_deleted Boolean   @default(false)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
+}
+
+model ref_tktpend {
+  id         BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  tktpend    String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+
+  ref_pend ref_pend[]
+}
+
+model rwt_suis {
+  id            String    @id @db.Char(36)
+  pegawai_id    String    @db.Char(36)
+  hubungan      String    @db.VarChar(255)
+  orang_id      String    @db.Char(255)
+  pns           Boolean?
+  aktaMenikah   String?   @db.VarChar(255)
+  tglMenikah    DateTime? @db.Date
+  aktaMeninggal String?   @db.VarChar(255)
+  tglMeninggal  DateTime? @db.Date
+  aktaCerai     String?   @db.VarChar(255)
+  tglCerai      DateTime? @db.Date
+  karisKarsu    String?   @db.VarChar(200)
+  created_at    DateTime? @db.Timestamp(0)
+  updated_at    DateTime? @db.Timestamp(0)
+
+  @@index([pegawai_id], map: "pegawai_id")
+  @@index([orang_id], map: "orang_id")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model ta_arsipskp {
+  id         String    @db.Char(36)
+  pegawai_id String    @db.Char(36)
+  rwtskp_id  String    @db.Char(36)
+  arsip      String    @db.VarChar(255)
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+
+  @@ignore
+}
+
+model ta_cpnspns {
+  id             String    @id @db.Char(36)
+  pegawai_id     String    @db.Char(36)
+  sk             String?   @db.VarChar(255)
+  tglsk          DateTime? @db.Date
+  tmtsk          DateTime? @db.Date
+  gol_id         Int?
+  maskerThn      String?   @db.Char(2)
+  maskerBln      String?   @db.Char(2)
+  pertekBkn      String?   @db.VarChar(255)
+  tglPertekBkn   DateTime? @db.Date
+  sttpl          String?   @db.VarChar(255)
+  tglsttpl       DateTime? @db.Date
+  spns_id        String    @db.VarChar(255)
+  noKarpeg       String?   @db.VarChar(255)
+  tglKarpeg      DateTime? @db.Date
+  penanda_tangan String?   @db.VarChar(200)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id])
+}
+
+model ta_nonasn {
+  id            String   @id @db.Char(36)
+  orang_id      String   @unique(map: "orang_id") @db.Char(36)
+  jab_id        String   @db.Char(36)
+  masker_thn    String   @db.Char(2)
+  masker_bln    String   @db.Char(2)
+  unorinduk_id  String   @db.Char(36)
+  unor_id       String   @db.Char(36)
+  subunor_id    String   @db.Char(36)
+  subunorsub_id String   @db.Char(36)
+  pend_id       String   @db.Char(36)
+  created_at    DateTime @default(now()) @db.Timestamp(0)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamp(0)
+}
+
+model ref_unitorganisasi {
+  id           String               @id @db.Char(36)
+  parent_id    String?              @db.Char(36)
+  instansi_id  String?              @db.Char(36)
+  kode         String               @db.VarChar(255)
+  nmUnor       String               @db.VarChar(255)
+  level        String               @db.VarChar(50) // 'induk', 'unor', 'sub', 'sub-sub'
+  jab_id       String?              @db.Char(36)
+  jnsUnor_id   String?              @db.Char(36)
+  eselon_id    String?              @db.Char(36)
+  is_pimpinan  Boolean              @default(false)
+  isAktif      Int                  @default(1)
+  is_deleted   Boolean              @default(false)
+  created_at   DateTime?            @default(now()) @db.Timestamp(0)
+  updated_at   DateTime?            @updatedAt @db.Timestamp(0)
+
+  parent       ref_unitorganisasi?  @relation("UnorHierarchy", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     ref_unitorganisasi[] @relation("UnorHierarchy")
+  ref_instansi ref_instansi?        @relation(fields: [instansi_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ref_jabatan  ref_jabatan?         @relation(fields: [jab_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rwt_jabatan  rwt_jabatan[]
+
+  @@index([parent_id])
+  @@index([instansi_id])
+  @@index([kode])
+  @@index([jab_id])
+}
+
