@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import { globalRateLimiter } from "./middlewares/rateLimiter.middleware.js";
 import AppError from "./utils/AppError.js";
-import logger from "./config/logger.js";
+import { serveStorageFile } from "./middlewares/storage.middleware.js";
 import swaggerRoute from "./api-docs/swagger.js";
 
 // Routes
@@ -49,7 +49,7 @@ app.use(cookieParser());
 
 // Serve static files (Rule 02)
 app.use("/public", express.static("public"));
-app.use("/storage", express.static("storage"));
+app.use("/storage", serveStorageFile, express.static("storage"));
 
 // 2. Rate limiter global (Rule 07)
 app.use(globalRateLimiter);
