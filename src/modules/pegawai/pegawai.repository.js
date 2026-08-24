@@ -984,6 +984,7 @@ export const findAllUnorInduk = async (onlyActive = true) => {
       kode: true,
       jab_id: true,
       parent_id: true,
+      isAktif: true,
     },
     orderBy: [
       { nmUnor: 'asc' },
@@ -1005,16 +1006,16 @@ export const findAllUnorInduk = async (onlyActive = true) => {
 };
 
 /**
- * Ambil pohon hierarki unit kerja (Tree View) khusus Tojo Una-Una aktif
+ * Ambil pohon hierarki unit kerja (Tree View) khusus Tojo Una-Una
  */
-export const findUnorTree = async () => {
+export const findUnorTree = async (onlyActive = true) => {
   const normalize = (s) => (s || '').trim().toLowerCase();
   const resolveJabatan = await createJabatanResolver();
 
   const allNodes = await prisma.ref_unitorganisasi.findMany({
     where: {
       is_deleted: false,
-      isAktif: 1,
+      ...(onlyActive && { isAktif: 1 }),
       nmUnor: { not: '' },
       OR: [
         { instansi_id: '47a536f3-8610-4492-aa81-d3a6e5b4399f' },
@@ -1029,6 +1030,7 @@ export const findUnorTree = async () => {
       nmUnor: true,
       level: true,
       jab_id: true,
+      isAktif: true,
     },
     orderBy: { nmUnor: 'asc' },
   });
@@ -1046,6 +1048,7 @@ export const findUnorTree = async () => {
     for (const item of list) {
       const cleanName = item.nmUnor.trim();
       const resolved = resolveJabatan(cleanName, item.level, item.jab_id);
+      const isInactive = item.isAktif === 0;
 
       if (parentName && normalize(cleanName) === normalize(parentName)) {
         const grandchildren = buildTree(item.id, cleanName);
@@ -1054,8 +1057,9 @@ export const findUnorTree = async () => {
         const children = buildTree(item.id, cleanName);
         result.push({
           id: item.id,
-          label: cleanName,
+          label: cleanName + (isInactive ? ' (Non-Aktif)' : ''),
           level: item.level,
+          isAktif: item.isAktif,
           nm_jab: resolved.nm_jab,
           jab_id: resolved.jab_id,
           eselon_id: resolved.eselon_id,

@@ -1222,8 +1222,8 @@ export const getRefJabatan = async () => {
     jabPelaksana,
   ] = await Promise.all([
     pegawaiRepository.findAllJnsJab(),
-    pegawaiRepository.findAllUnorInduk(),
-    pegawaiRepository.findUnorTree(),
+    pegawaiRepository.findAllUnorInduk(false),
+    pegawaiRepository.findUnorTree(false),
     pegawaiRepository.findAllEselon(),
     pegawaiRepository.findAllJnsMutasi(),
     pegawaiRepository.findAllRefJabatan(),
@@ -1233,8 +1233,8 @@ export const getRefJabatan = async () => {
 
   const daftarJabatan = [
     ...jabStruktural.map(j => ({ id: j.id, nama: j.nm_jab, tipe: 'STRUKTURAL', jns_jab_id: j.jns_jab_id, eselon_id: j.eselon_id })),
-    ...jabFungsional.map(j => ({ id: j.id, nama: j.nmJab, tipe: 'FUNGSIONAL' })),
-    ...jabPelaksana.map(j => ({ id: j.id, nama: j.nmJab, tipe: 'PELAKSANA' })),
+    ...jabFungsional.map(j => ({ id: j.id, nama: j.nama_jabatan || j.nmJab, tipe: 'FUNGSIONAL' })),
+    ...jabPelaksana.map(j => ({ id: j.id, nama: j.nama_jabatan || j.nmJab, tipe: 'PELAKSANA' })),
   ];
 
   return {
