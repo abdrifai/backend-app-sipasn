@@ -1006,6 +1006,16 @@ export const findAllUnorInduk = async (onlyActive = true) => {
 };
 
 /**
+ * Cari unit organisasi berdasarkan ID
+ */
+export const findUnorById = async (id) => {
+  return prisma.ref_unitorganisasi.findFirst({
+    where: { id, is_deleted: false },
+    select: { id: true, instansi_id: true, jnsUnor_id: true, kode: true },
+  });
+};
+
+/**
  * Ambil pohon hierarki unit kerja (Tree View) khusus Tojo Una-Una
  */
 export const findUnorTree = async (onlyActive = true) => {

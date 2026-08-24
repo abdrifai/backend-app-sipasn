@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "fs";
 import path from "path";
 import ExcelJS from 'exceljs';
+import prisma from "../../config/database.js";
 import * as pegawaiRepository from "./pegawai.repository.js";
 import AppError from "../../utils/AppError.js";
 import logger from "../../config/logger.js";
@@ -1267,10 +1268,7 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
   let unorKode = null;
 
   if (payload.unorInduk_id) {
-    const unorRecord = await prisma.ref_unitorganisasi.findFirst({
-      where: { id: payload.unorInduk_id, is_deleted: false },
-      select: { id: true, instansi_id: true, jnsUnor_id: true, kode: true },
-    });
+    const unorRecord = await pegawaiRepository.findUnorById(payload.unorInduk_id);
     if (unorRecord) {
       instansiId = unorRecord.instansi_id || "1";
       jnsUnorId = unorRecord.jnsUnor_id || "1";
@@ -1333,10 +1331,7 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
   let jnsUnorId = undefined;
 
   if (payload.unorInduk_id) {
-    const unorRecord = await prisma.ref_unitorganisasi.findFirst({
-      where: { id: payload.unorInduk_id, is_deleted: false },
-      select: { id: true, instansi_id: true, jnsUnor_id: true, kode: true },
-    });
+    const unorRecord = await pegawaiRepository.findUnorById(payload.unorInduk_id);
     if (unorRecord) {
       instansiId = unorRecord.instansi_id || "1";
       jnsUnorId = unorRecord.jnsUnor_id || "1";
