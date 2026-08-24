@@ -410,19 +410,44 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
 };
 
 /**
- * Ambil statistik jabatan untuk satu unit kerja
+ * Ambil statistik jabatan untuk satu unit kerja (hanya pegawai aktif)
  */
-export const findDUKStats = async (unorInduk_id) => {
-  return prisma.rwt_jabatan.findMany({
-    where: { unorInduk_id },
+export const findDUKStats = async (unorInduk_id, filters = {}) => {
+  const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
+  const { tktPend_id, gol_id, jnsJab_id } = filters;
+
+  const where = {
+    ...activePnsWhere,
+    ...((unorInduk_id || jnsJab_id) && {
+      rwt_jabatan: {
+        ...(unorInduk_id && { unorInduk_id }),
+        ...(jnsJab_id && { jnsJab_id }),
+      },
+    }),
+    ...(tktPend_id && {
+      rwt_pend: { tktPend_id: parseInt(tktPend_id) },
+    }),
+    ...(gol_id && {
+      rwt_gol: { gol_id },
+    }),
+  };
+
+  const pegawais = await prisma.ta_pegawai.findMany({
+    where,
     select: {
-      nmJab_id: true,
-      jnsJab_id: true,
-      ref_jabatan: {
-        select: { nama_jabatan: true, kategori: true },
+      rwt_jabatan: {
+        select: {
+          nmJab_id: true,
+          jnsJab_id: true,
+          ref_jabatan: {
+            select: { nama_jabatan: true, kategori: true },
+          },
+        },
       },
     },
   });
+
+  return pegawais.map((p) => p.rwt_jabatan).filter(Boolean);
 };
 
 /**
@@ -1051,7 +1076,7 @@ export const findUnorTree = async () => {
 export const findAllTktPend = async () => {
   return prisma.ref_tktpend.findMany({
     select: { id: true, tktpend: true },
-    orderBy: { id: 'desc' }
+    orderBy: { id: 'asc' }
   });
 };
 

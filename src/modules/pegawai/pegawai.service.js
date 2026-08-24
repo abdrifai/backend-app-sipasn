@@ -822,9 +822,9 @@ export const getPegawaiStatistics = async () => {
 
   const eduStats = Object.keys(eduCounts).map(tktIdStr => ({
     id: tktIdStr,
-    label: tktPends.find(t => t.id === tktIdStr)?.tktpend || "Lainnya",
+    label: tktPends.find(t => String(t.id) === String(tktIdStr))?.tktpend || "Lainnya",
     count: eduCounts[tktIdStr]
-  })).sort((a, b) => b.count - a.count);
+  })).sort((a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0));
 
   // 6. Age mapping
   const now = new Date();
@@ -903,8 +903,12 @@ export const getDUKReport = async (query) => {
     per_jabatan: {}
   };
 
-  // Hitung stats per jabatan dari SELURUH data di unit tersebut (High Performance)
-  const allJobRecords = await pegawaiRepository.findDUKStats(unorInduk_id);
+  // Hitung stats per jabatan dari SELURUH pegawai aktif di unit tersebut (High Performance)
+  const allJobRecords = await pegawaiRepository.findDUKStats(unorInduk_id, {
+    tktPend_id,
+    gol_id,
+    jnsJab_id,
+  });
   const jabatanCache = new Map();
   
   for (const j of allJobRecords) {
