@@ -1213,6 +1213,7 @@ export const removeRiwayatKgb = async (pegawaiId, rwtKgbId) => {
 export const getRefJabatan = async () => {
   const [
     jenisJabatan,
+    jenjangJabatan,
     unorInduk,
     unorTree,
     eselon,
@@ -1222,6 +1223,7 @@ export const getRefJabatan = async () => {
     jabPelaksana,
   ] = await Promise.all([
     pegawaiRepository.findAllJnsJab(),
+    pegawaiRepository.findAllJenjangJab(),
     pegawaiRepository.findAllUnorInduk(false),
     pegawaiRepository.findUnorTree(false),
     pegawaiRepository.findAllEselon(),
@@ -1239,6 +1241,7 @@ export const getRefJabatan = async () => {
 
   return {
     jenis_jabatan: jenisJabatan,
+    jenjang_jabatan: jenjangJabatan.map(j => ({ id: String(j.id), jenjangjab: j.jenjangjab, jnsjab_id: j.jnsjab_id })),
     unor_induk: unorInduk,
     unor_tree: unorTree,
     eselon,

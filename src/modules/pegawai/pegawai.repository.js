@@ -1092,6 +1092,17 @@ export const findAllJnsJab = async () => {
     select: { id: true, jnsjab: true }
   });
 };
+
+/**
+ * Ambil semua jenjang jabatan untuk label
+ */
+export const findAllJenjangJab = async () => {
+  return prisma.ref_jenjangjab.findMany({
+    where: { is_deleted: false },
+    select: { id: true, jenjangjab: true, jnsjab_id: true },
+    orderBy: { id: 'asc' },
+  });
+};
 /**
  * Ambil semua golongan untuk label
  */
