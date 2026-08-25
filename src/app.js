@@ -38,6 +38,10 @@ app.use(
     contentSecurityPolicy: false,
   })
 );
+app.use((req, res, next) => {
+  res.removeHeader("X-Frame-Options");
+  next();
+});
 app.use(
   cors({
     origin:
