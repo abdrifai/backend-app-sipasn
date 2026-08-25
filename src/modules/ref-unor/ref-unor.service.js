@@ -10,13 +10,31 @@ export const getAllJnsUnor = async (params = {}) => {
   const page = params.page ? Math.max(1, parseInt(params.page, 10)) : null;
   const limit = params.limit ? Math.max(1, parseInt(params.limit, 10)) : null;
 
+  const trimmedSearch = search ? search.trim() : "";
+  const numSearch = parseInt(trimmedSearch, 10);
+  const isNum = !isNaN(numSearch);
+
+  const codeFilters = [];
+  if (isNum) {
+    codeFilters.push({ kode: numSearch });
+    if (trimmedSearch.length >= 2 && trimmedSearch.length <= 5) {
+      const multiplier = Math.pow(10, 6 - trimmedSearch.length);
+      codeFilters.push({
+        kode: {
+          gte: numSearch * multiplier,
+          lte: (numSearch + 1) * multiplier - 1
+        }
+      });
+    }
+  }
+
   const where = { 
     is_deleted: false,
     ...(instansi_id ? { instansi_id } : {}),
-    ...(search ? {
+    ...(trimmedSearch ? {
       OR: [
-        { jnsunor: { contains: search } },
-        ...(isNaN(parseInt(search, 10)) ? [] : [{ kode: parseInt(search, 10) }])
+        { jnsunor: { contains: trimmedSearch } },
+        ...codeFilters
       ]
     } : {})
   };
