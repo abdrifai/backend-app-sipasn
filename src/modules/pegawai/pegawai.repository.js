@@ -1117,7 +1117,12 @@ export const findAllJnsJab = async () => {
 export const findAllJenjangJab = async () => {
   return prisma.ref_jenjangjab.findMany({
     where: { is_deleted: false },
-    select: { id: true, jenjangjab: true, jnsjab_id: true },
+    select: {
+      id: true,
+      jenjangjab: true,
+      jnsjab_id: true,
+      ref_jnsjab: { select: { id: true, jnsjab: true } },
+    },
     orderBy: { id: 'asc' },
   });
 };

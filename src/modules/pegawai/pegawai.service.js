@@ -1270,14 +1270,11 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
   let nmJabId = payload.nmJab_id || null;
   let jnsJabId = payload.jnsJab_id || null;
 
-  if (jnsJabId && (!isNaN(jnsJabId) || typeof jnsJabId === 'number')) {
-    const numId = Number(jnsJabId);
-    if ([1, 2, 3].includes(numId)) {
-      jnsJabId = "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5";
-    } else if ([4, 5].includes(numId)) {
-      jnsJabId = "490b8479-fd4f-4f99-992e-880a5611b890";
-    } else if ([6, 7, 8].includes(numId)) {
-      jnsJabId = "d7ec3033-9729-4d3e-86fb-16f30cfe3127";
+  if (jnsJabId) {
+    const refJenjangList = await pegawaiRepository.findAllJenjangJab();
+    const foundJenjang = refJenjangList.find(j => String(j.id) === String(jnsJabId));
+    if (foundJenjang?.jnsjab_id) {
+      jnsJabId = foundJenjang.jnsjab_id;
     }
   }
 
@@ -1357,14 +1354,11 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
   let nmJabId = payload.nmJab_id !== undefined ? (payload.nmJab_id || null) : undefined;
   let jnsJabId = payload.jnsJab_id !== undefined ? (payload.jnsJab_id || null) : undefined;
 
-  if (jnsJabId && (!isNaN(jnsJabId) || typeof jnsJabId === 'number')) {
-    const numId = Number(jnsJabId);
-    if ([1, 2, 3].includes(numId)) {
-      jnsJabId = "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5";
-    } else if ([4, 5].includes(numId)) {
-      jnsJabId = "490b8479-fd4f-4f99-992e-880a5611b890";
-    } else if ([6, 7, 8].includes(numId)) {
-      jnsJabId = "d7ec3033-9729-4d3e-86fb-16f30cfe3127";
+  if (jnsJabId) {
+    const refJenjangList = await pegawaiRepository.findAllJenjangJab();
+    const foundJenjang = refJenjangList.find(j => String(j.id) === String(jnsJabId));
+    if (foundJenjang?.jnsjab_id) {
+      jnsJabId = foundJenjang.jnsjab_id;
     }
   }
 

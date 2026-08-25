@@ -679,13 +679,14 @@ model ref_jenjangdiklat {
 }
 
 model ref_jenjangjab {
-  id          BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
-  jnsjab_id   Int
-  jenjangjab  String        @db.VarChar(255)
-  is_deleted  Boolean       @default(false)
-  created_at  DateTime?     @db.Timestamp(0)
-  updated_at  DateTime?     @db.Timestamp(0)
-  ref_jabatan ref_jabatan[]
+  id             BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  jnsjab_id      String?          @db.Char(36)
+  jenjangjab     String           @db.VarChar(255)
+  is_deleted     Boolean          @default(false)
+  created_at     DateTime?        @db.Timestamp(0)
+  updated_at     DateTime?        @db.Timestamp(0)
+  ref_jnsjab     ref_jnsjab?      @relation(fields: [jnsjab_id], references: [id])
+  ref_jabatan    ref_jabatan[]
 }
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
@@ -710,15 +711,16 @@ model ref_jnshukuman {
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 model ref_jnsjab {
-  id          String        @id @db.Char(36)
-  kode        String        @db.VarChar(10)
-  jnsjab      String        @db.VarChar(255)
-  kode_sapk   Int?
-  is_deleted  Boolean       @default(false)
-  created_at  DateTime?     @db.Timestamp(0)
-  updated_at  DateTime?     @db.Timestamp(0)
-  rwt_jabatan rwt_jabatan[]
-  ref_jabatan ref_jabatan[]
+  id             String           @id @db.Char(36)
+  kode           String           @db.VarChar(10)
+  jnsjab         String           @db.VarChar(255)
+  kode_sapk      Int?
+  is_deleted     Boolean          @default(false)
+  created_at     DateTime?        @db.Timestamp(0)
+  updated_at     DateTime?        @db.Timestamp(0)
+  rwt_jabatan    rwt_jabatan[]
+  ref_jabatan    ref_jabatan[]
+  ref_jenjangjab ref_jenjangjab[]
 }
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
