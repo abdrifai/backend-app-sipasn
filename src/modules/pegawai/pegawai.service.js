@@ -1397,15 +1397,6 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
     ...(payload.pengesahan !== undefined && { pengesahan: payload.pengesahan || "-" }),
     ...(userId && { user_updated: parseInt(userId) }),
   };
-    ...(payload.unorInduk_id && { unorInduk_id: payload.unorInduk_id }),
-    ...(unorKode !== undefined && { unorInduk_kode: unorKode }),
-    ...(instansiId !== undefined && { instansi_id: instansiId }),
-    ...(jnsUnorId !== undefined && { jnsUnor_id: jnsUnorId }),
-    ...(payload.eselon_id !== undefined && { eselon_id: payload.eselon_id || null }),
-    ...(payload.jnsMutasi_id !== undefined && { jnsMutasi_id: payload.jnsMutasi_id || null }),
-    ...(payload.pengesahan !== undefined && { pengesahan: payload.pengesahan || "-" }),
-    ...(userId && { user_updated: parseInt(userId) }),
-  };
 
   const updatedRecord = await pegawaiRepository.updateRiwayatJabatan(rwtJabId, updateData);
 
