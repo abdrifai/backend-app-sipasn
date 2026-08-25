@@ -4,6 +4,7 @@ import path from "path";
 import ExcelJS from 'exceljs';
 import prisma from "../../config/database.js";
 import * as pegawaiRepository from "./pegawai.repository.js";
+import { resolveJabatanForUnor } from "../ref-unor/ref-unor.jabatan-resolver.js";
 import AppError from "../../utils/AppError.js";
 import logger from "../../config/logger.js";
 
@@ -1266,6 +1267,19 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
   let instansiId = "1";
   let jnsUnorId = "1";
   let unorKode = null;
+  let nmJabId = payload.nmJab_id || null;
+  let jnsJabId = payload.jnsJab_id || null;
+
+  if (jnsJabId && (!isNaN(jnsJabId) || typeof jnsJabId === 'number')) {
+    const numId = Number(jnsJabId);
+    if ([1, 2, 3].includes(numId)) {
+      jnsJabId = "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5";
+    } else if ([4, 5].includes(numId)) {
+      jnsJabId = "490b8479-fd4f-4f99-992e-880a5611b890";
+    } else if ([6, 7, 8].includes(numId)) {
+      jnsJabId = "d7ec3033-9729-4d3e-86fb-16f30cfe3127";
+    }
+  }
 
   if (payload.unorInduk_id) {
     const unorRecord = await pegawaiRepository.findUnorById(payload.unorInduk_id);
@@ -1273,6 +1287,17 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
       instansiId = unorRecord.instansi_id || "1";
       jnsUnorId = unorRecord.jnsUnor_id || "1";
       unorKode = unorRecord.kode || null;
+
+      if (!nmJabId || nmJabId === 'null' || nmJabId === 'undefined') {
+        const resolved = await resolveJabatanForUnor({
+          nmUnor: unorRecord.nmUnor,
+          jabId: unorRecord.jab_id,
+          level: unorRecord.level,
+        });
+        if (resolved?.jab_id) {
+          nmJabId = resolved.jab_id;
+        }
+      }
     }
   }
 
@@ -1283,8 +1308,8 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
     sk: payload.sk || null,
     tglSk: new Date(payload.tglSk),
     tmtSk: new Date(payload.tmtSk),
-    jnsJab_id: payload.jnsJab_id || null,
-    nmJab_id: payload.nmJab_id || null,
+    jnsJab_id: jnsJabId,
+    nmJab_id: nmJabId,
     unorInduk_id: payload.unorInduk_id,
     instansi_id: instansiId,
     instansi_kode: "7209",
@@ -1329,6 +1354,19 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
   let unorKode = undefined;
   let instansiId = undefined;
   let jnsUnorId = undefined;
+  let nmJabId = payload.nmJab_id !== undefined ? (payload.nmJab_id || null) : undefined;
+  let jnsJabId = payload.jnsJab_id !== undefined ? (payload.jnsJab_id || null) : undefined;
+
+  if (jnsJabId && (!isNaN(jnsJabId) || typeof jnsJabId === 'number')) {
+    const numId = Number(jnsJabId);
+    if ([1, 2, 3].includes(numId)) {
+      jnsJabId = "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5";
+    } else if ([4, 5].includes(numId)) {
+      jnsJabId = "490b8479-fd4f-4f99-992e-880a5611b890";
+    } else if ([6, 7, 8].includes(numId)) {
+      jnsJabId = "d7ec3033-9729-4d3e-86fb-16f30cfe3127";
+    }
+  }
 
   if (payload.unorInduk_id) {
     const unorRecord = await pegawaiRepository.findUnorById(payload.unorInduk_id);
@@ -1336,6 +1374,17 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
       instansiId = unorRecord.instansi_id || "1";
       jnsUnorId = unorRecord.jnsUnor_id || "1";
       unorKode = unorRecord.kode || null;
+
+      if (!nmJabId) {
+        const resolved = await resolveJabatanForUnor({
+          nmUnor: unorRecord.nmUnor,
+          jabId: unorRecord.jab_id,
+          level: unorRecord.level,
+        });
+        if (resolved?.jab_id) {
+          nmJabId = resolved.jab_id;
+        }
+      }
     }
   }
 
@@ -1343,8 +1392,17 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
     ...(payload.sk !== undefined && { sk: payload.sk || null }),
     ...(payload.tglSk && { tglSk: new Date(payload.tglSk) }),
     ...(payload.tmtSk && { tmtSk: new Date(payload.tmtSk) }),
-    ...(payload.jnsJab_id !== undefined && { jnsJab_id: payload.jnsJab_id || null }),
-    ...(payload.nmJab_id !== undefined && { nmJab_id: payload.nmJab_id || null }),
+    ...(jnsJabId !== undefined && { jnsJab_id: jnsJabId }),
+    ...(nmJabId !== undefined && { nmJab_id: nmJabId }),
+    ...(payload.unorInduk_id && { unorInduk_id: payload.unorInduk_id }),
+    ...(unorKode !== undefined && { unorInduk_kode: unorKode }),
+    ...(instansiId !== undefined && { instansi_id: instansiId }),
+    ...(jnsUnorId !== undefined && { jnsUnor_id: jnsUnorId }),
+    ...(payload.eselon_id !== undefined && { eselon_id: payload.eselon_id || null }),
+    ...(payload.jnsMutasi_id !== undefined && { jnsMutasi_id: payload.jnsMutasi_id || null }),
+    ...(payload.pengesahan !== undefined && { pengesahan: payload.pengesahan || "-" }),
+    ...(userId && { user_updated: parseInt(userId) }),
+  };
     ...(payload.unorInduk_id && { unorInduk_id: payload.unorInduk_id }),
     ...(unorKode !== undefined && { unorInduk_kode: unorKode }),
     ...(instansiId !== undefined && { instansi_id: instansiId }),

@@ -1011,7 +1011,15 @@ export const findAllUnorInduk = async (onlyActive = true) => {
 export const findUnorById = async (id) => {
   return prisma.ref_unitorganisasi.findFirst({
     where: { id, is_deleted: false },
-    select: { id: true, instansi_id: true, jnsUnor_id: true, kode: true },
+    select: {
+      id: true,
+      instansi_id: true,
+      jnsUnor_id: true,
+      kode: true,
+      nmUnor: true,
+      level: true,
+      jab_id: true,
+    },
   });
 };
 
