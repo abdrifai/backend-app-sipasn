@@ -76,11 +76,27 @@ export const createUnorSchema = Joi.object({
   unorinduk_kode: Joi.string().max(255).allow(null, "").optional(),
 });
 
-export const updateUnorSchema = Joi.object({
+const commonUpdateUnorSchema = {
   kode: Joi.string().max(255).allow(null, "").optional(),
   nmUnor: Joi.string().max(255).optional(),
   jab_id: Joi.string().max(255).allow(null, "").optional(),
   nm_jab: Joi.string().max(255).allow(null, "").optional(),
+  kategori_jab: Joi.string().valid("STRUKTURAL", "FUNGSIONAL", "PELAKSANA").allow(null, "").optional(),
+  eselon_id: Joi.string().max(36).allow(null, "").optional(),
+  jns_jab_id: Joi.string().max(36).allow(null, "").optional(),
+  jenjang_jab_id: Joi.alternatives().try(Joi.number(), Joi.string()).allow(null, "").optional(),
+  bup: Joi.alternatives().try(Joi.number().min(50).max(70), Joi.string()).allow(null, "").optional(),
+  kelas_jabatan: Joi.alternatives().try(Joi.number().min(1).max(17), Joi.string()).allow(null, "").optional(),
+  kode_jabatan: Joi.string().max(100).allow(null, "").optional(),
+  peraturan: Joi.string().max(255).allow(null, "").optional(),
+  tglPeraturan: Joi.alternatives().try(Joi.date().iso(), Joi.string()).allow(null, "").optional(),
+  tahun: Joi.alternatives().try(Joi.number().integer(), Joi.string()).allow(null, "").optional(),
+  ket: Joi.string().allow(null, "").optional(),
+  isAktif: Joi.alternatives().try(Joi.number().integer().valid(0, 1), Joi.string()).optional(),
+};
+
+export const updateUnorSchema = Joi.object({
+  ...commonUpdateUnorSchema,
   unorinduk_id: Joi.string().max(255).allow(null, "").optional(),
   unorinduk_kode: Joi.string().max(255).allow(null, "").optional(),
 }).min(1);
@@ -92,10 +108,7 @@ export const createSubUnorSchema = Joi.object({
 });
 
 export const updateSubUnorSchema = Joi.object({
-  kode: Joi.string().max(255).allow(null, "").optional(),
-  nmUnor: Joi.string().max(255).optional(),
-  jab_id: Joi.string().max(255).allow(null, "").optional(),
-  nm_jab: Joi.string().max(255).allow(null, "").optional(),
+  ...commonUpdateUnorSchema,
   unor_id: Joi.string().max(255).allow(null, "").optional(),
   unor_kode: Joi.string().max(255).allow(null, "").optional(),
 }).min(1);
@@ -107,10 +120,7 @@ export const createSubUnorSubSchema = Joi.object({
 });
 
 export const updateSubUnorSubSchema = Joi.object({
-  kode: Joi.string().max(255).allow(null, "").optional(),
-  nmUnor: Joi.string().max(255).optional(),
-  jab_id: Joi.string().max(255).allow(null, "").optional(),
-  nm_jab: Joi.string().max(255).allow(null, "").optional(),
+  ...commonUpdateUnorSchema,
   subUnor_id: Joi.string().max(255).allow(null, "").optional(),
   subUnor_kode: Joi.string().max(255).allow(null, "").optional(),
 }).min(1);
