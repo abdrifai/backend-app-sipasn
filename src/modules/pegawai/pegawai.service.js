@@ -434,7 +434,27 @@ export const getPegawaiDetail = async (id) => {
   // Format Riwayat Jabatan
   const formattedRiwayatJabatan = await Promise.all(
     riwayatData.riwayatJabatan.map(async (rj) => {
-      const nmJabatan = rj.ref_jabatan?.nama_jabatan || "-";
+      let nmJabatan = rj.ref_jabatan?.nama_jabatan || null;
+
+      if (!nmJabatan || nmJabatan === "-") {
+        if (rj.ref_unitorganisasi?.nmUnor) {
+          const resolved = await resolveJabatanForUnor({
+            nmUnor: rj.ref_unitorganisasi.nmUnor,
+            jabId: rj.ref_unitorganisasi.jab_id || rj.nmJab_id,
+            level: rj.ref_unitorganisasi.level,
+          });
+          nmJabatan = resolved?.nm_jab || null;
+          if (!nmJabatan || nmJabatan === "-") {
+            const cleanUnor = rj.ref_unitorganisasi.nmUnor.trim();
+            nmJabatan = cleanUnor.toUpperCase().startsWith("KEPALA ")
+              ? cleanUnor
+              : `KEPALA ${cleanUnor}`;
+          }
+        }
+      }
+
+      if (!nmJabatan) nmJabatan = "-";
+
       const arsip = riwayatData.arsipList?.find(a => a.from === rj.id);
 
       return {
