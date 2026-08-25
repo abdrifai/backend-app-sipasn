@@ -476,10 +476,6 @@ export const updateUnor = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.unorinduk_id ? { parent_id: data.unorinduk_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
       ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
   });
@@ -589,10 +585,6 @@ export const updateSubUnor = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.unor_id ? { parent_id: data.unor_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
       ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
   });
@@ -697,10 +689,6 @@ export const updateSubUnorSub = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.subUnor_id ? { parent_id: data.subUnor_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
       ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
   });
