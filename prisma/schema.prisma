@@ -897,6 +897,10 @@ model ref_unitorganisasi {
   jab_id       String?              @db.Char(36)
   jnsUnor_id   String?              @db.Char(36)
   eselon_id    String?              @db.Char(36)
+  peraturan    String?              @db.VarChar(255)
+  tglPeraturan DateTime?            @db.Date
+  tahun        Int?
+  ket          String?              @db.Text
   is_pimpinan  Boolean              @default(false)
   isAktif      Int                  @default(1)
   is_deleted   Boolean              @default(false)

@@ -15,6 +15,11 @@ const commonUnorSchema = {
   bup: Joi.alternatives().try(Joi.number().min(50).max(70), Joi.string()).allow(null, "").optional(),
   kelas_jabatan: Joi.alternatives().try(Joi.number().min(1).max(17), Joi.string()).allow(null, "").optional(),
   kode_jabatan: Joi.string().max(100).allow(null, "").optional(),
+  peraturan: Joi.string().max(255).allow(null, "").optional(),
+  tglPeraturan: Joi.alternatives().try(Joi.date().iso(), Joi.string()).allow(null, "").optional(),
+  tahun: Joi.alternatives().try(Joi.number().integer(), Joi.string()).allow(null, "").optional(),
+  ket: Joi.string().allow(null, "").optional(),
+  isAktif: Joi.alternatives().try(Joi.number().integer().valid(0, 1), Joi.string()).optional(),
 };
 
 export const createJnsUnorSchema = Joi.object({
