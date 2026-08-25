@@ -33,6 +33,8 @@ BigInt.prototype.toJSON = function() { return this.toString() };
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: false,
+    xFrameOptions: false,
     contentSecurityPolicy: false,
   })
 );
