@@ -434,27 +434,7 @@ export const getPegawaiDetail = async (id) => {
   // Format Riwayat Jabatan
   const formattedRiwayatJabatan = await Promise.all(
     riwayatData.riwayatJabatan.map(async (rj) => {
-      let nmJabatan = rj.ref_jabatan?.nama_jabatan || null;
-
-      if (!nmJabatan || nmJabatan === "-") {
-        if (rj.ref_unitorganisasi?.nmUnor) {
-          const resolved = await resolveJabatanForUnor({
-            nmUnor: rj.ref_unitorganisasi.nmUnor,
-            jabId: rj.ref_unitorganisasi.jab_id || rj.nmJab_id,
-            level: rj.ref_unitorganisasi.level,
-          });
-          nmJabatan = resolved?.nm_jab || null;
-          if (!nmJabatan || nmJabatan === "-") {
-            const cleanUnor = rj.ref_unitorganisasi.nmUnor.trim();
-            nmJabatan = cleanUnor.toUpperCase().startsWith("KEPALA ")
-              ? cleanUnor
-              : `KEPALA ${cleanUnor}`;
-          }
-        }
-      }
-
-      if (!nmJabatan) nmJabatan = "-";
-
+      const nmJabatan = rj.ref_jabatan?.nama_jabatan || "-";
       const arsip = riwayatData.arsipList?.find(a => a.from === rj.id);
 
       return {
@@ -1313,48 +1293,9 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
         });
         if (resolved?.jab_id) {
           nmJabId = resolved.jab_id;
-        } else if (resolved?.nm_jab) {
-          let matched = await prisma.ref_jabatan.findFirst({
-            where: { nama_jabatan: { equals: resolved.nm_jab }, is_deleted: false },
-            select: { id: true },
-          });
-          if (!matched) {
-            matched = await prisma.ref_jabatan.create({
-              data: {
-                id: randomUUID(),
-                nama_jabatan: resolved.nm_jab,
-                kategori: "STRUKTURAL",
-                is_aktif: 1,
-                is_deleted: false,
-              },
-              select: { id: true },
-            });
-          }
-          nmJabId = matched.id;
         }
       }
     }
-  }
-
-  if ((!nmJabId || nmJabId === 'null') && payload.nama_jabatan_custom?.trim()) {
-    const customName = payload.nama_jabatan_custom.trim();
-    let matched = await prisma.ref_jabatan.findFirst({
-      where: { nama_jabatan: { equals: customName }, is_deleted: false },
-      select: { id: true },
-    });
-    if (!matched) {
-      matched = await prisma.ref_jabatan.create({
-        data: {
-          id: randomUUID(),
-          nama_jabatan: customName,
-          kategori: "STRUKTURAL",
-          is_aktif: 1,
-          is_deleted: false,
-        },
-        select: { id: true },
-      });
-    }
-    nmJabId = matched.id;
   }
 
   const createData = {
@@ -1436,48 +1377,9 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
         });
         if (resolved?.jab_id) {
           nmJabId = resolved.jab_id;
-        } else if (resolved?.nm_jab) {
-          let matched = await prisma.ref_jabatan.findFirst({
-            where: { nama_jabatan: { equals: resolved.nm_jab }, is_deleted: false },
-            select: { id: true },
-          });
-          if (!matched) {
-            matched = await prisma.ref_jabatan.create({
-              data: {
-                id: randomUUID(),
-                nama_jabatan: resolved.nm_jab,
-                kategori: "STRUKTURAL",
-                is_aktif: 1,
-                is_deleted: false,
-              },
-              select: { id: true },
-            });
-          }
-          nmJabId = matched.id;
         }
       }
     }
-  }
-
-  if ((!nmJabId || nmJabId === 'null') && payload.nama_jabatan_custom?.trim()) {
-    const customName = payload.nama_jabatan_custom.trim();
-    let matched = await prisma.ref_jabatan.findFirst({
-      where: { nama_jabatan: { equals: customName }, is_deleted: false },
-      select: { id: true },
-    });
-    if (!matched) {
-      matched = await prisma.ref_jabatan.create({
-        data: {
-          id: randomUUID(),
-          nama_jabatan: customName,
-          kategori: "STRUKTURAL",
-          is_aktif: 1,
-          is_deleted: false,
-        },
-        select: { id: true },
-      });
-    }
-    nmJabId = matched.id;
   }
 
   const updateData = {
