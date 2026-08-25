@@ -3,6 +3,18 @@ import AppError from "../../utils/AppError.js";
 import { v4 as uuidv4 } from "uuid";
 import { resolveJabatanForUnor } from "./ref-unor.jabatan-resolver.js";
 
+const parseOptionalDate = (val) => {
+  if (!val || val === "" || val === "null" || val === "undefined") return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const parseOptionalInt = (val) => {
+  if (val === undefined || val === null || val === "" || val === "null" || val === "undefined") return null;
+  const num = parseInt(val, 10);
+  return isNaN(num) ? null : num;
+};
+
 // --- JENIS UNOR ---
 
 export const getAllJnsUnor = async (params = {}) => {
@@ -363,11 +375,11 @@ export const createUnorInduk = async (data) => {
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       peraturan: data.peraturan || null,
-      tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null,
-      tahun: data.tahun !== undefined && data.tahun !== null ? parseInt(data.tahun, 10) : null,
+      tglPeraturan: parseOptionalDate(data.tglPeraturan),
+      tahun: parseOptionalInt(data.tahun),
       ket: data.ket || null,
       is_pimpinan: false,
-      isAktif: data.isAktif ?? 1,
+      isAktif: parseOptionalInt(data.isAktif) ?? 1,
       is_deleted: false,
     },
   });
@@ -396,11 +408,11 @@ export const updateUnorInduk = async (id, data) => {
       ...(data.instansi_id !== undefined ? { instansi_id: data.instansi_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
       ...(data.jnsUnor_id !== undefined ? { jnsUnor_id: data.jnsUnor_id } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
-      ...(data.isAktif !== undefined ? { isAktif: data.isAktif } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan || null } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: parseOptionalDate(data.tglPeraturan) } : {}),
+      ...(data.tahun !== undefined ? { tahun: parseOptionalInt(data.tahun) } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket || null } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseOptionalInt(data.isAktif) ?? 1 } : {}),
     },
   });
 };
@@ -507,12 +519,12 @@ export const updateUnor = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.unorinduk_id ? { parent_id: data.unorinduk_id } : {}),
       ...(data.jnsUnor_id !== undefined ? { jnsUnor_id: data.jnsUnor_id } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan || null } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: parseOptionalDate(data.tglPeraturan) } : {}),
+      ...(data.tahun !== undefined ? { tahun: parseOptionalInt(data.tahun) } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket || null } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
-      ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseOptionalInt(data.isAktif) ?? 1 } : {}),
     },
   });
 };
@@ -626,12 +638,12 @@ export const updateSubUnor = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.unor_id ? { parent_id: data.unor_id } : {}),
       ...(data.jnsUnor_id !== undefined ? { jnsUnor_id: data.jnsUnor_id } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan || null } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: parseOptionalDate(data.tglPeraturan) } : {}),
+      ...(data.tahun !== undefined ? { tahun: parseOptionalInt(data.tahun) } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket || null } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
-      ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseOptionalInt(data.isAktif) ?? 1 } : {}),
     },
   });
 };
@@ -707,11 +719,11 @@ export const createSubUnorSub = async (data) => {
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       peraturan: data.peraturan || null,
-      tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null,
-      tahun: data.tahun !== undefined && data.tahun !== null ? parseInt(data.tahun, 10) : null,
+      tglPeraturan: parseOptionalDate(data.tglPeraturan),
+      tahun: parseOptionalInt(data.tahun),
       ket: data.ket || null,
       is_pimpinan: false,
-      isAktif: data.isAktif !== undefined ? parseInt(data.isAktif, 10) : 1,
+      isAktif: parseOptionalInt(data.isAktif) ?? 1,
       is_deleted: false,
     },
   });
@@ -740,12 +752,12 @@ export const updateSubUnorSub = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.subUnor_id ? { parent_id: data.subUnor_id } : {}),
       ...(data.jnsUnor_id !== undefined ? { jnsUnor_id: data.jnsUnor_id } : {}),
-      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
-      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
-      ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
-      ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan || null } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: parseOptionalDate(data.tglPeraturan) } : {}),
+      ...(data.tahun !== undefined ? { tahun: parseOptionalInt(data.tahun) } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket || null } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
-      ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseOptionalInt(data.isAktif) ?? 1 } : {}),
     },
   });
 };
