@@ -120,11 +120,10 @@ export const getAllEselon = async () => {
 // --- HELPER JABATAN ---
 
 const saveOrUpdateJabatan = async (targetJabId, nm_jab, extraData = {}) => {
-  if (!nm_jab || !nm_jab.trim()) return targetJabId;
-  const trimmedJab = nm_jab.trim();
+  const trimmedJab = nm_jab ? nm_jab.trim() : "";
 
   const jabData = {
-    nama_jabatan: trimmedJab,
+    ...(trimmedJab ? { nama_jabatan: trimmedJab } : {}),
     ...(extraData.kategori ? { kategori: extraData.kategori } : {}),
     ...(extraData.eselon_id !== undefined ? { eselon_id: extraData.eselon_id || null } : {}),
     ...(extraData.jns_jab_id !== undefined ? { jns_jab_id: extraData.jns_jab_id || null } : {}),
@@ -134,48 +133,45 @@ const saveOrUpdateJabatan = async (targetJabId, nm_jab, extraData = {}) => {
     ...(extraData.kode_jabatan !== undefined ? { kode: extraData.kode_jabatan || null } : {}),
   };
 
+  if (!trimmedJab && Object.keys(jabData).length === 0) return targetJabId;
+
   if (targetJabId) {
     const jabExists = await prisma.ref_jabatan.findUnique({ where: { id: targetJabId } });
     if (jabExists) {
-      await prisma.ref_jabatan.update({
-        where: { id: targetJabId },
-        data: jabData,
-      });
-      return targetJabId;
-    } else {
-      await prisma.ref_jabatan.upsert({
-        where: { id: targetJabId },
-        create: {
-          id: targetJabId,
-          kategori: extraData.kategori || 'STRUKTURAL',
-          ...jabData,
-        },
-        update: jabData,
-      });
+      if (Object.keys(jabData).length > 0) {
+        await prisma.ref_jabatan.update({
+          where: { id: targetJabId },
+          data: jabData,
+        });
+      }
       return targetJabId;
     }
-  } else {
-    const existingByName = await prisma.ref_jabatan.findFirst({
-      where: { nama_jabatan: trimmedJab, is_deleted: false },
-      select: { id: true },
-    });
-    if (existingByName) {
+  }
+
+  if (!trimmedJab) return targetJabId;
+
+  const existingByName = await prisma.ref_jabatan.findFirst({
+    where: { nama_jabatan: trimmedJab, is_deleted: false },
+    select: { id: true },
+  });
+  if (existingByName) {
+    if (Object.keys(jabData).length > 0) {
       await prisma.ref_jabatan.update({
         where: { id: existingByName.id },
         data: jabData,
       });
-      return existingByName.id;
     }
-    const newJabId = uuidv4();
-    await prisma.ref_jabatan.create({
-      data: {
-        id: newJabId,
-        kategori: extraData.kategori || 'STRUKTURAL',
-        ...jabData,
-      },
-    });
-    return newJabId;
+    return existingByName.id;
   }
+  const newJabId = uuidv4();
+  await prisma.ref_jabatan.create({
+    data: {
+      id: newJabId,
+      kategori: extraData.kategori || 'STRUKTURAL',
+      ...jabData,
+    },
+  });
+  return newJabId;
 };
 
 // --- HELPER GET NODE & RESOLVE JABATAN ---
@@ -461,8 +457,16 @@ export const updateUnor = async (id, data) => {
   const existing = await getUnorById(id);
   if (data.unorinduk_id) await getUnorIndukById(data.unorinduk_id);
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
-  if (data.nm_jab) {
-    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab);
+  if (data.nm_jab || data.eselon_id !== undefined || data.kategori_jab !== undefined) {
+    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab, {
+      kategori: data.kategori_jab,
+      eselon_id: data.eselon_id,
+      jns_jab_id: data.jns_jab_id,
+      jenjang_jab_id: data.jenjang_jab_id,
+      bup: data.bup,
+      kelas_jabatan: data.kelas_jabatan,
+      kode_jabatan: data.kode_jabatan,
+    });
   }
 
   return prisma.ref_unitorganisasi.update({
@@ -472,6 +476,11 @@ export const updateUnor = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.unorinduk_id ? { parent_id: data.unorinduk_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
+      ...(data.tahun !== undefined ? { tahun: data.tahun ? parseInt(data.tahun, 10) : null } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
   });
 };
@@ -524,8 +533,16 @@ export const createSubUnor = async (data) => {
   const id = uuidv4();
   const generatedKode = data.kode || `${data.unor_kode || parentUnor?.kode || "7209"}${Date.now().toString().slice(-4)}`;
   let targetJabId = data.jab_id || null;
-  if (data.nm_jab) {
-    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab);
+  if (data.nm_jab || data.eselon_id !== undefined) {
+    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab, {
+      kategori: data.kategori_jab,
+      eselon_id: data.eselon_id,
+      jns_jab_id: data.jns_jab_id,
+      jenjang_jab_id: data.jenjang_jab_id,
+      bup: data.bup,
+      kelas_jabatan: data.kelas_jabatan,
+      kode_jabatan: data.kode_jabatan,
+    });
   }
 
   const isPimpinan = Boolean(
@@ -553,8 +570,16 @@ export const updateSubUnor = async (id, data) => {
   const existing = await getSubUnorById(id);
   if (data.unor_id) await getUnorById(data.unor_id);
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
-  if (data.nm_jab) {
-    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab);
+  if (data.nm_jab || data.eselon_id !== undefined || data.kategori_jab !== undefined) {
+    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab, {
+      kategori: data.kategori_jab,
+      eselon_id: data.eselon_id,
+      jns_jab_id: data.jns_jab_id,
+      jenjang_jab_id: data.jenjang_jab_id,
+      bup: data.bup,
+      kelas_jabatan: data.kelas_jabatan,
+      kode_jabatan: data.kode_jabatan,
+    });
   }
 
   return prisma.ref_unitorganisasi.update({
@@ -564,6 +589,11 @@ export const updateSubUnor = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.unor_id ? { parent_id: data.unor_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
+      ...(data.tahun !== undefined ? { tahun: data.tahun ? parseInt(data.tahun, 10) : null } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
   });
 };
@@ -616,8 +646,16 @@ export const createSubUnorSub = async (data) => {
   const id = uuidv4();
   const generatedKode = data.kode || `${data.subUnor_kode || parentSub?.kode || "7209"}${Date.now().toString().slice(-4)}`;
   let targetJabId = data.jab_id || null;
-  if (data.nm_jab) {
-    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab);
+  if (data.nm_jab || data.eselon_id !== undefined) {
+    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab, {
+      kategori: data.kategori_jab,
+      eselon_id: data.eselon_id,
+      jns_jab_id: data.jns_jab_id,
+      jenjang_jab_id: data.jenjang_jab_id,
+      bup: data.bup,
+      kelas_jabatan: data.kelas_jabatan,
+      kode_jabatan: data.kode_jabatan,
+    });
   }
 
   return prisma.ref_unitorganisasi.create({
@@ -640,8 +678,16 @@ export const updateSubUnorSub = async (id, data) => {
   const existing = await getSubUnorSubById(id);
   if (data.subUnor_id) await getSubUnorById(data.subUnor_id);
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
-  if (data.nm_jab) {
-    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab);
+  if (data.nm_jab || data.eselon_id !== undefined || data.kategori_jab !== undefined) {
+    targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab, {
+      kategori: data.kategori_jab,
+      eselon_id: data.eselon_id,
+      jns_jab_id: data.jns_jab_id,
+      jenjang_jab_id: data.jenjang_jab_id,
+      bup: data.bup,
+      kelas_jabatan: data.kelas_jabatan,
+      kode_jabatan: data.kode_jabatan,
+    });
   }
 
   return prisma.ref_unitorganisasi.update({
@@ -651,6 +697,11 @@ export const updateSubUnorSub = async (id, data) => {
       ...(data.nmUnor ? { nmUnor: data.nmUnor } : {}),
       ...(data.subUnor_id ? { parent_id: data.subUnor_id } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
+      ...(data.peraturan !== undefined ? { peraturan: data.peraturan } : {}),
+      ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
+      ...(data.tahun !== undefined ? { tahun: data.tahun ? parseInt(data.tahun, 10) : null } : {}),
+      ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
   });
 };
