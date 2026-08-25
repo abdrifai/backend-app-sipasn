@@ -35,6 +35,7 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: false,
     xFrameOptions: false,
+    frameguard: false,
     contentSecurityPolicy: false,
   })
 );
