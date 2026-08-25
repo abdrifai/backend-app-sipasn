@@ -7,6 +7,8 @@ import fs from "fs";
  * jika struktur folder di server berbeda dari path database.
  */
 export const serveStorageFile = (req, res, next) => {
+  res.removeHeader("X-Frame-Options");
+  res.removeHeader("Content-Security-Policy");
   const storageRoot = path.resolve(process.cwd(), "storage");
   const rawPath = decodeURIComponent(req.path || "").replace(/^\/+/, "");
   
