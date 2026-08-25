@@ -273,11 +273,20 @@ export const getAllPegawai = async (query) => {
   // Format data untuk frontend secara paralel
   const formattedData = await Promise.all(
     result.data.map(async (p) => {
-      let jabatan = "Staf";
       const rwtJab = p.rwt_jabatan;
-
-      if (rwtJab) {
-        jabatan = rwtJab.ref_jabatan?.nama_jabatan || "Staf";
+      let jabatan = rwtJab?.ref_jabatan?.nama_jabatan || rwtJab?.ref_jnsjab?.jnsjab || "-";
+      if (jabatan === "-") {
+        const lastRwtJab = await prisma.rwt_jabatan.findFirst({
+          where: { pegawai_id: p.id },
+          include: {
+            ref_jabatan: { select: { nama_jabatan: true } },
+            ref_jnsjab: { select: { jnsjab: true } },
+          },
+          orderBy: { created_at: "desc" },
+        });
+        if (lastRwtJab) {
+          jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jnsjab?.jnsjab || "-";
+        }
       }
 
       const gd = p.rwt_pend?.gd;
@@ -361,11 +370,20 @@ export const getPegawaiDetail = async (id) => {
     pegawaiRepository.findAllGol(),
   ]);
 
-  let jabatan = "Staf";
   const rwtJab = p.rwt_jabatan;
-
-  if (rwtJab) {
-    jabatan = rwtJab.ref_jabatan?.nama_jabatan || "Staf";
+  let jabatan = rwtJab?.ref_jabatan?.nama_jabatan || rwtJab?.ref_jnsjab?.jnsjab || "-";
+  if (jabatan === "-") {
+    const lastRwtJab = await prisma.rwt_jabatan.findFirst({
+      where: { pegawai_id: p.id },
+      include: {
+        ref_jabatan: { select: { nama_jabatan: true } },
+        ref_jnsjab: { select: { jnsjab: true } },
+      },
+      orderBy: { created_at: "desc" },
+    });
+    if (lastRwtJab) {
+      jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jnsjab?.jnsjab || "-";
+    }
   }
 
   // Format gelar & nama lengkap
@@ -870,8 +888,8 @@ export const getPegawaiStatistics = async () => {
  * Resolve nama jabatan berdasarkan ref_jabatan
  */
 const getNamaJabatan = (rwtJab) => {
-  if (!rwtJab) return "Staf";
-  return rwtJab.ref_jabatan?.nama_jabatan || "Staf";
+  if (!rwtJab) return "-";
+  return rwtJab.ref_jabatan?.nama_jabatan || rwtJab.ref_jnsjab?.jnsjab || "-";
 };
 
 /**
