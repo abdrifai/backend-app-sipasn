@@ -35,6 +35,9 @@ export const findAll = async (params = {}) => {
         bup: true,
         kelas_jabatan: true,
         is_aktif: true,
+        ref_unitorganisasi: {
+          select: { id: true, nmUnor: true, parent_id: true, level: true }
+        },
         ref_jnsjab: {
           select: { id: true, jnsjab: true, kode: true }
         },
@@ -52,11 +55,60 @@ export const findAll = async (params = {}) => {
     prisma.ref_jabatan.count({ where }),
   ]);
 
-  // Map nama_jabatan ke nm_jab juga agar kompatibel dengan response lama jika ada yang consume
-  const formattedData = data.map(item => ({
-    ...item,
-    nm_jab: item.nama_jabatan,
-  }));
+  // Pre-fetch active units to map parent OPD names
+  const allUnors = await prisma.ref_unitorganisasi.findMany({
+    where: { is_deleted: false },
+    select: { id: true, parent_id: true, nmUnor: true, level: true, kode: true }
+  });
+
+  const unorIdMap = new Map();
+  const unorKodeMap = new Map();
+  allUnors.forEach(u => {
+    unorIdMap.set(u.id, u);
+    if (u.kode && u.kode.length >= 9) {
+      unorKodeMap.set(u.kode.substring(0, 9), u);
+    }
+  });
+
+  function getParentOpd(unor) {
+    if (!unor) return "";
+    let curr = unor;
+    while (curr && curr.parent_id && curr.level !== "induk") {
+      curr = unorIdMap.get(curr.parent_id);
+    }
+    return curr ? curr.nmUnor : "";
+  }
+
+  // Map nama_jabatan dan info unit terhubung agar mudah dibedakan saat pencarian
+  const formattedData = data.map(item => {
+    let unitLabel = "";
+    if (item.ref_unitorganisasi) {
+      const parentOpd = getParentOpd(item.ref_unitorganisasi);
+      if (parentOpd && parentOpd !== item.ref_unitorganisasi.nmUnor) {
+        unitLabel = `${item.ref_unitorganisasi.nmUnor} @ ${parentOpd}`;
+      } else {
+        unitLabel = item.ref_unitorganisasi.nmUnor;
+      }
+    }
+    if (!unitLabel && item.kode) {
+      const prefix = item.kode.substring(0, 9);
+      const matched = unorKodeMap.get(prefix);
+      if (matched) {
+        unitLabel = getParentOpd(matched) || matched.nmUnor;
+      }
+    }
+
+    const fullLabel = unitLabel 
+      ? `${item.nama_jabatan} — (${unitLabel})`
+      : item.nama_jabatan;
+
+    return {
+      ...item,
+      nm_jab: fullLabel,
+      nama_jabatan_murni: item.nama_jabatan,
+      unit_terhubung: unitLabel || null,
+    };
+  });
 
   return {
     data: formattedData,
