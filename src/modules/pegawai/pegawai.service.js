@@ -1313,9 +1313,48 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
         });
         if (resolved?.jab_id) {
           nmJabId = resolved.jab_id;
+        } else if (resolved?.nm_jab) {
+          let matched = await prisma.ref_jabatan.findFirst({
+            where: { nama_jabatan: { equals: resolved.nm_jab }, is_deleted: false },
+            select: { id: true },
+          });
+          if (!matched) {
+            matched = await prisma.ref_jabatan.create({
+              data: {
+                id: randomUUID(),
+                nama_jabatan: resolved.nm_jab,
+                kategori: "STRUKTURAL",
+                is_aktif: 1,
+                is_deleted: false,
+              },
+              select: { id: true },
+            });
+          }
+          nmJabId = matched.id;
         }
       }
     }
+  }
+
+  if ((!nmJabId || nmJabId === 'null') && payload.nama_jabatan_custom?.trim()) {
+    const customName = payload.nama_jabatan_custom.trim();
+    let matched = await prisma.ref_jabatan.findFirst({
+      where: { nama_jabatan: { equals: customName }, is_deleted: false },
+      select: { id: true },
+    });
+    if (!matched) {
+      matched = await prisma.ref_jabatan.create({
+        data: {
+          id: randomUUID(),
+          nama_jabatan: customName,
+          kategori: "STRUKTURAL",
+          is_aktif: 1,
+          is_deleted: false,
+        },
+        select: { id: true },
+      });
+    }
+    nmJabId = matched.id;
   }
 
   const createData = {
@@ -1389,7 +1428,7 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
       jnsUnorId = unorRecord.jnsUnor_id || "1";
       unorKode = unorRecord.kode || null;
 
-      if (!nmJabId) {
+      if (!nmJabId || nmJabId === 'null') {
         const resolved = await resolveJabatanForUnor({
           nmUnor: unorRecord.nmUnor,
           jabId: unorRecord.jab_id,
@@ -1397,9 +1436,48 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
         });
         if (resolved?.jab_id) {
           nmJabId = resolved.jab_id;
+        } else if (resolved?.nm_jab) {
+          let matched = await prisma.ref_jabatan.findFirst({
+            where: { nama_jabatan: { equals: resolved.nm_jab }, is_deleted: false },
+            select: { id: true },
+          });
+          if (!matched) {
+            matched = await prisma.ref_jabatan.create({
+              data: {
+                id: randomUUID(),
+                nama_jabatan: resolved.nm_jab,
+                kategori: "STRUKTURAL",
+                is_aktif: 1,
+                is_deleted: false,
+              },
+              select: { id: true },
+            });
+          }
+          nmJabId = matched.id;
         }
       }
     }
+  }
+
+  if ((!nmJabId || nmJabId === 'null') && payload.nama_jabatan_custom?.trim()) {
+    const customName = payload.nama_jabatan_custom.trim();
+    let matched = await prisma.ref_jabatan.findFirst({
+      where: { nama_jabatan: { equals: customName }, is_deleted: false },
+      select: { id: true },
+    });
+    if (!matched) {
+      matched = await prisma.ref_jabatan.create({
+        data: {
+          id: randomUUID(),
+          nama_jabatan: customName,
+          kategori: "STRUKTURAL",
+          is_aktif: 1,
+          is_deleted: false,
+        },
+        select: { id: true },
+      });
+    }
+    nmJabId = matched.id;
   }
 
   const updateData = {
