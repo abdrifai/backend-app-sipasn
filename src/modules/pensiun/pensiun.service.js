@@ -78,7 +78,16 @@ export const getAllPensiun = async (params = {}) => {
             },
             rwt_jabatan: {
               select: {
-                nama_jabatan: true,
+                ref_jabatan: {
+                  select: {
+                    nama_jabatan: true,
+                  },
+                },
+                ref_jnsjab: {
+                  select: {
+                    jnsjab: true,
+                  },
+                },
                 ref_unitorganisasi: {
                   select: {
                     nmUnor: true,
@@ -110,7 +119,7 @@ export const getAllPensiun = async (params = {}) => {
             nipBaru: pegawai.nipBaru,
             nama: pegawai.ta_orang?.nama || "-",
             foto: pegawai.ta_orang?.foto || null,
-            jabatan: pegawai.rwt_jabatan?.nama_jabatan || "-",
+            jabatan: pegawai.rwt_jabatan?.ref_jabatan?.nama_jabatan || pegawai.rwt_jabatan?.ref_jnsjab?.jnsjab || "-",
             unor: pegawai.rwt_jabatan?.ref_unitorganisasi?.nmUnor || "-",
           }
         : null,
