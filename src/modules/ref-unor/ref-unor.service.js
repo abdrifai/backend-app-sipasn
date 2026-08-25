@@ -1,6 +1,7 @@
 import prisma from "../../config/database.js";
 import AppError from "../../utils/AppError.js";
 import { v4 as uuidv4 } from "uuid";
+import { resolveJabatanForUnor } from "./ref-unor.jabatan-resolver.js";
 
 // --- JENIS UNOR ---
 
@@ -202,18 +203,50 @@ export const getUnorByIdGeneral = async (id, level = null) => {
   });
   if (!data) throw new AppError("Unit organisasi tidak ditemukan", 404);
   
-  const nm_jab = data.ref_jabatan?.nama_jabatan || "-";
+  let jabRecord = data.ref_jabatan;
+  let resolvedJabId = data.jab_id;
+  let nm_jab = jabRecord?.nama_jabatan || null;
+
+  if (!jabRecord || !nm_jab) {
+    const resolved = await resolveJabatanForUnor({
+      nmUnor: data.nmUnor,
+      jabId: data.jab_id,
+      level: data.level,
+    });
+    if (resolved?.jab_id) {
+      resolvedJabId = resolved.jab_id;
+      nm_jab = resolved.nm_jab;
+      jabRecord = await prisma.ref_jabatan.findUnique({
+        where: { id: resolved.jab_id },
+        select: {
+          id: true,
+          nama_jabatan: true,
+          kode: true,
+          kategori: true,
+          eselon_id: true,
+          jns_jab_id: true,
+          jenjang_jab_id: true,
+          bup: true,
+          kelas_jabatan: true,
+        },
+      });
+    } else if (resolved?.nm_jab) {
+      nm_jab = resolved.nm_jab;
+    }
+  }
+
   return {
     ...data,
-    nm_jab,
-    kategori_jab: data.ref_jabatan?.kategori || "STRUKTURAL",
-    eselon_id: data.ref_jabatan?.eselon_id || "",
-    jns_jab_id: data.ref_jabatan?.jns_jab_id || "",
-    jenjang_jab_id: data.ref_jabatan?.jenjang_jab_id ? data.ref_jabatan.jenjang_jab_id.toString() : "",
-    bup: data.ref_jabatan?.bup ?? 58,
-    kelas_jabatan: data.ref_jabatan?.kelas_jabatan ?? "",
-    kode_jabatan: data.ref_jabatan?.kode || "",
-    jabatan_detail: data.ref_jabatan || null,
+    jab_id: resolvedJabId,
+    nm_jab: nm_jab || "-",
+    kategori_jab: jabRecord?.kategori || "STRUKTURAL",
+    eselon_id: jabRecord?.eselon_id || data.eselon_id || "",
+    jns_jab_id: jabRecord?.jns_jab_id || "",
+    jenjang_jab_id: jabRecord?.jenjang_jab_id ? jabRecord.jenjang_jab_id.toString() : "",
+    bup: jabRecord?.bup ?? 58,
+    kelas_jabatan: jabRecord?.kelas_jabatan ?? "",
+    kode_jabatan: jabRecord?.kode || "",
+    jabatan_detail: jabRecord || null,
   };
 };
 
