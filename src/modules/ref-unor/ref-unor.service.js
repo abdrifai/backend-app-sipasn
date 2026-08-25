@@ -466,7 +466,7 @@ export const createUnor = async (data) => {
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       is_pimpinan: isPimpinan,
-      isAktif: 1,
+      isAktif: data.isAktif !== undefined ? parseInt(data.isAktif, 10) : 1,
       is_deleted: false,
     },
   });
@@ -577,7 +577,7 @@ export const createSubUnor = async (data) => {
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       is_pimpinan: isPimpinan,
-      isAktif: 1,
+      isAktif: data.isAktif !== undefined ? parseInt(data.isAktif, 10) : 1,
       is_deleted: false,
     },
   });
@@ -683,7 +683,7 @@ export const createSubUnorSub = async (data) => {
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       is_pimpinan: false,
-      isAktif: 1,
+      isAktif: data.isAktif !== undefined ? parseInt(data.isAktif, 10) : 1,
       is_deleted: false,
     },
   });
