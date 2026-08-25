@@ -919,3 +919,20 @@ model ref_unitorganisasi {
   @@index([jab_id])
 }
 
+model rwt_pensiun {
+  id              String    @id @db.Char(36)
+  pegawai_id      String    @db.Char(36)
+  kedudukanpns_id Int
+  no_sk           String?   @db.VarChar(255)
+  tgl_sk          DateTime? @db.Date
+  tmt_pensiun     DateTime? @db.Date
+  file_sk         String?   @db.VarChar(255)
+  ket             String?   @db.Text
+  is_deleted      Boolean   @default(false)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+  updated_at      DateTime? @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id])
+  @@index([kedudukanpns_id])
+}
+

@@ -22,6 +22,7 @@ import refJnsHukumanRoute from "./modules/ref-jns-hukuman/ref-jns-hukuman.route.
 import refUnorRoute from "./modules/ref-unor/ref-unor.route.js";
 import refInstansiRoute from "./modules/ref-instansi/ref-instansi.route.js";
 import refJabatanRoute from "./modules/ref-jabatan/ref-jabatan.route.js";
+import pensiunRoute from "./modules/pensiun/pensiun.route.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -67,6 +68,7 @@ app.use("/api/ref-jns-hukuman", refJnsHukumanRoute);
 app.use("/api/ref-unor", refUnorRoute);
 app.use("/api/ref-instansi", refInstansiRoute);
 app.use("/api/ref-jabatan", refJabatanRoute);
+app.use("/api/pensiun", pensiunRoute);
 
 // Swagger API Documentation (Rule 04)
 if (process.env.SWAGGER_ENABLED !== "false") {
