@@ -10,6 +10,8 @@ const router = Router();
 router.use(authenticate);
 
 router.get("/kedudukan-options", pensiunController.getKedudukanOptions);
+router.get("/proyeksi", pensiunController.getProyeksiPensiun);
+router.get("/proyeksi/export", pensiunController.exportProyeksiPensiun);
 router.get("/", pensiunController.getAllPensiun);
 router.post(
   "/",

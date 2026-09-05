@@ -49,6 +49,32 @@ export const getUnorTree = async (params = {}) => {
 
   // Level 2+: Children under Instansi (Level 'induk' / Top OPD)
   let rawData = [];
+  const treeNodeSelect = {
+    id: true,
+    parent_id: true,
+    instansi_id: true,
+    kode: true,
+    nmUnor: true,
+    level: true,
+    jab_id: true,
+    is_pimpinan: true,
+    isAktif: true,
+    ref_jabatan: {
+      select: {
+        id: true,
+        nama_jabatan: true,
+        kategori: true,
+        ref_eselon: { select: { eselon: true } },
+        ref_jnsjab: { select: { jnsjab: true } },
+        ref_jenjangjab: { select: { jenjangjab: true } },
+      },
+    },
+    children: {
+      where: { is_deleted: false, isAktif: 1 },
+      select: { id: true, nmUnor: true },
+    },
+  };
+
   if (level === "instansi") {
     rawData = await prisma.ref_unitorganisasi.findMany({
       where: {
@@ -57,20 +83,7 @@ export const getUnorTree = async (params = {}) => {
         is_deleted: false,
         isAktif: 1,
       },
-      select: {
-        id: true,
-        parent_id: true,
-        instansi_id: true,
-        kode: true,
-        nmUnor: true,
-        level: true,
-        jab_id: true,
-        is_pimpinan: true,
-        children: {
-          where: { is_deleted: false, isAktif: 1 },
-          select: { id: true, nmUnor: true },
-        },
-      },
+      select: treeNodeSelect,
       orderBy: { kode: "asc" },
     });
   } else {
@@ -81,20 +94,7 @@ export const getUnorTree = async (params = {}) => {
         is_deleted: false,
         isAktif: 1,
       },
-      select: {
-        id: true,
-        parent_id: true,
-        instansi_id: true,
-        kode: true,
-        nmUnor: true,
-        level: true,
-        jab_id: true,
-        is_pimpinan: true,
-        children: {
-          where: { is_deleted: false, isAktif: 1 },
-          select: { id: true, nmUnor: true },
-        },
-      },
+      select: treeNodeSelect,
       orderBy: { kode: "asc" },
     });
   }
@@ -118,7 +118,13 @@ export const getUnorTree = async (params = {}) => {
       nmUnor: item.nmUnor,
       level: item.level,
       is_pimpinan: item.is_pimpinan,
+      isAktif: item.isAktif,
       jab_id: item.jab_id,
+      nm_jab: item.ref_jabatan?.nama_jabatan || null,
+      kategori_jab: item.ref_jabatan?.kategori || null,
+      eselon: item.ref_jabatan?.ref_eselon?.eselon || null,
+      jns_jab: item.ref_jabatan?.ref_jnsjab?.jnsjab || null,
+      jenjang_jab: item.ref_jabatan?.ref_jenjangjab?.jenjangjab || null,
       children: [],
       expanded: false,
       hasChildren: realDistinctChildren.length > 0,

@@ -71,12 +71,14 @@ export const createJnsJabSchema = Joi.object({
   kode: Joi.alternatives().try(Joi.string().max(10), Joi.number()).required(),
   jnsjab: Joi.string().max(255).required(),
   kode_sapk: Joi.alternatives().try(Joi.number().integer(), Joi.string().allow("")).allow(null).optional(),
+  is_aktif: Joi.number().valid(0, 1).default(1),
 });
 
 export const updateJnsJabSchema = Joi.object({
   kode: Joi.alternatives().try(Joi.string().max(10), Joi.number()),
   jnsjab: Joi.string().max(255),
   kode_sapk: Joi.alternatives().try(Joi.number().integer(), Joi.string().allow("")).allow(null).optional(),
+  is_aktif: Joi.number().valid(0, 1),
 });
 
 // --- NAMA JABATAN LAMA ---

@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
  * Ambil semua data jenis jabatan dengan pagination & search
  */
 export const findAll = async (params = {}) => {
-  const { search = "" } = params;
+  const { search = "", is_aktif } = params;
   const page = Math.max(1, parseInt(params.page, 10) || 1);
   const limit = Math.max(1, parseInt(params.limit, 10) || 10);
   const skip = (page - 1) * limit;
@@ -13,6 +13,9 @@ export const findAll = async (params = {}) => {
   const where = {
     is_deleted: false,
     ...(search ? { jnsjab: { contains: search } } : {}),
+    ...(is_aktif !== undefined && is_aktif !== "" && is_aktif !== null
+      ? { is_aktif: parseInt(is_aktif, 10) }
+      : {}),
   };
 
   const [data, total] = await Promise.all([
@@ -25,6 +28,7 @@ export const findAll = async (params = {}) => {
         kode: true,
         jnsjab: true,
         kode_sapk: true,
+        is_aktif: true,
         created_at: true,
         updated_at: true,
       },
@@ -55,6 +59,7 @@ export const findById = async (id) => {
       kode: true,
       jnsjab: true,
       kode_sapk: true,
+      is_aktif: true,
       created_at: true,
       updated_at: true,
     },
@@ -69,6 +74,9 @@ export const create = async (data) => {
   const kode_sapk = data.kode_sapk !== undefined && data.kode_sapk !== null && data.kode_sapk !== ""
     ? parseInt(data.kode_sapk, 10)
     : null;
+  const is_aktif = data.is_aktif !== undefined && data.is_aktif !== null && data.is_aktif !== ""
+    ? parseInt(data.is_aktif, 10)
+    : 1;
 
   return prisma.ref_jnsjab.create({
     data: {
@@ -76,9 +84,10 @@ export const create = async (data) => {
       kode: String(data.kode),
       jnsjab: data.jnsjab.trim(),
       kode_sapk,
+      is_aktif,
       is_deleted: false,
     },
-    select: { id: true, kode: true, jnsjab: true, kode_sapk: true },
+    select: { id: true, kode: true, jnsjab: true, kode_sapk: true, is_aktif: true },
   });
 };
 
@@ -94,11 +103,14 @@ export const update = async (id, data) => {
       ? parseInt(data.kode_sapk, 10)
       : null;
   }
+  if (data.is_aktif !== undefined && data.is_aktif !== null && data.is_aktif !== "") {
+    updateData.is_aktif = parseInt(data.is_aktif, 10);
+  }
 
   return prisma.ref_jnsjab.update({
     where: { id },
     data: updateData,
-    select: { id: true, kode: true, jnsjab: true, kode_sapk: true },
+    select: { id: true, kode: true, jnsjab: true, kode_sapk: true, is_aktif: true },
   });
 };
 

@@ -1259,6 +1259,21 @@ export const getRefJabatan = async () => {
     ...jabPelaksana.map(j => ({ id: j.id, nama: j.nama_jabatan || j.nmJab, tipe: 'PELAKSANA' })),
   ];
 
+  const jenjangEselonRaw = await prisma.ref_jabatan.findMany({
+    where: { is_deleted: false, jenjang_jab_id: { not: null }, eselon_id: { not: null } },
+    select: { jenjang_jab_id: true, eselon_id: true },
+    distinct: ['jenjang_jab_id', 'eselon_id'],
+  });
+
+  const jenjangEselonMap = {};
+  for (const item of jenjangEselonRaw) {
+    const jId = String(item.jenjang_jab_id);
+    if (!jenjangEselonMap[jId]) jenjangEselonMap[jId] = [];
+    if (!jenjangEselonMap[jId].includes(item.eselon_id)) {
+      jenjangEselonMap[jId].push(item.eselon_id);
+    }
+  }
+
   return {
     jenis_jabatan: jenisJabatan,
     jenjang_jabatan: jenjangJabatan.map(j => ({ id: String(j.id), jenjangjab: j.jenjangjab, jnsjab_id: j.jnsjab_id })),
@@ -1267,6 +1282,7 @@ export const getRefJabatan = async () => {
     eselon,
     jenis_mutasi: jenisMutasi,
     daftar_jabatan: daftarJabatan,
+    jenjang_eselon_map: jenjangEselonMap,
   };
 };
 

@@ -39,8 +39,11 @@ tags:
     description: Master data referensi instansi pemerintah
   - name: DB Analysis
     description: Endpoint diagnostik dan analisis data database
+  - name: Import PNS
+    description: Endpoint untuk import data PNS dari file CSV, monitoring batch, dan manajemen data terimport
 
 paths:
+
   # ==========================================
   # AUTH
   # ==========================================
@@ -2164,9 +2167,116 @@ paths:
       security:
         - bearerAuth: []
         - cookieAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Kata kunci pencarian nama jenis jabatan
+          schema:
+            type: string
+        - name: is_aktif
+          in: query
+          description: Filter status aktif (1=Aktif, 0=Non-Aktif)
+          schema:
+            type: integer
+            enum: [0, 1]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
       responses:
         '200':
           $ref: '#/components/responses/SuccessResponse'
+    post:
+      tags:
+        - Ref Jabatan
+      summary: Tambah Jenis Jabatan
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - kode
+                - jnsjab
+              properties:
+                kode:
+                  type: string
+                jnsjab:
+                  type: string
+                kode_sapk:
+                  type: integer
+                is_aktif:
+                  type: integer
+                  enum: [0, 1]
+                  default: 1
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessResponse'
+        '422':
+          $ref: '#/components/responses/ValidationErrorResponse'
+
+  /api/ref-jabatan/jenis/{id}:
+    patch:
+      tags:
+        - Ref Jabatan
+      summary: Update Jenis Jabatan
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kode:
+                  type: string
+                jnsjab:
+                  type: string
+                kode_sapk:
+                  type: integer
+                is_aktif:
+                  type: integer
+                  enum: [0, 1]
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+    delete:
+      tags:
+        - Ref Jabatan
+      summary: Hapus Jenis Jabatan
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
 
   /api/ref-jabatan/lama:
     get:
@@ -2425,10 +2535,225 @@ paths:
         '200':
           $ref: '#/components/responses/SuccessResponse'
 
+  # ==========================================
+  # IMPORT PNS
+  # ==========================================
+  /api/import-pns/upload:
+    post:
+      tags:
+        - Import PNS
+      summary: Upload file CSV data PNS
+      description: Mengunggah file CSV berisikan data PNS, memvalidasi dan memproses insert batch ke tabel import_pns.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File CSV data PNS
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+
+  /api/import-pns:
+    get:
+      tags:
+        - Import PNS
+      summary: Ambil daftar data import PNS
+      description: Mengambil data import PNS dengan pagination, filter batch, status, dan pencarian kata kunci.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: batch_id
+          schema:
+            type: string
+        - in: query
+          name: status_cpns_pns
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+
+  /api/import-pns/summary:
+    get:
+      tags:
+        - Import PNS
+      summary: Ringkasan statistik import PNS
+      description: Mengambil total data terimport dan daftar batch import terbaru.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/import-pns/rekap-jabatan:
+    get:
+      tags:
+        - Import PNS
+      summary: Rekapitulasi jumlah pegawai per jabatan
+      description: Mengambil daftar formasi jabatan beserta rekapitulasi jumlah PNS, CPNS, dan total pegawai.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: batch_id
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+
+  /api/import-pns/rekap-jenis-jabatan:
+    get:
+      tags:
+        - Import PNS
+      summary: Rekapitulasi jumlah pegawai per jenis jabatan
+      description: Mengambil ringkasan distribusi jenis jabatan (Fungsional, Pelaksana, Struktural) beserta jumlah PNS, CPNS, dan persentase.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: batch_id
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+
+
+
+  /api/import-pns/template:
+    get:
+      tags:
+        - Import PNS
+      summary: Download template CSV import PNS
+      description: Mengunduh file template CSV dengan header lengkap dan baris contoh data.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: File template CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /api/import-pns/{id}:
+    get:
+      tags:
+        - Import PNS
+      summary: Detail data import PNS
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+    delete:
+      tags:
+        - Import PNS
+      summary: Hapus satu baris data import PNS
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/import-pns/batch/{batchId}:
+    delete:
+      tags:
+        - Import PNS
+      summary: Hapus seluruh data dalam satu batch import
+      parameters:
+        - in: path
+          name: batchId
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
 # ==========================================
 # COMPONENTS & SCHEMAS
 # ==========================================
 components:
+
   securitySchemes:
     bearerAuth:
       type: http

@@ -1,6 +1,8 @@
 import prisma from "../../config/database.js";
 import AppError from "../../utils/AppError.js";
 import { v4 as uuidv4 } from "uuid";
+import ExcelJS from 'exceljs';
+import * as pensiunRepository from "./pensiun.repository.js";
 
 const parseOptionalDate = (val) => {
   if (!val || val === "" || val === "null" || val === "undefined") return null;
@@ -215,4 +217,136 @@ export const deletePensiun = async (id) => {
 
     return { message: "Data pensiun berhasil dihapus" };
   });
+};
+
+/**
+ * Ambil data laporan proyeksi estimasi pensiun pegawai
+ */
+export const getEstimasiPensiunReport = async (query = {}) => {
+  const {
+    tahun = new Date().getFullYear().toString(),
+    bulan = "",
+    rentang = "",
+    unorInduk_id = "",
+    jns_jab_id = "",
+    search = "",
+    page = 1,
+    limit = 15,
+  } = query;
+
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.max(1, parseInt(limit, 10) || 15);
+  const skip = (pageNum - 1) * limitNum;
+
+  const result = await pensiunRepository.findEstimasiPensiun({
+    tahun,
+    bulan,
+    rentang,
+    unorInduk_id,
+    jns_jab_id,
+    search: search ? search.trim() : "",
+    skip,
+    take: limitNum,
+  });
+
+  return {
+    data: result.data,
+    stats: result.stats,
+    meta: result.meta,
+  };
+};
+
+/**
+ * Generate Excel buffer untuk laporan estimasi pensiun
+ */
+export const generateEstimasiPensiunExcel = async (query = {}) => {
+  const result = await pensiunRepository.findEstimasiPensiun({
+    ...query,
+    skip: 0,
+    take: 100000,
+  });
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Estimasi Pensiun');
+
+  // Judul Laporan
+  worksheet.mergeCells('A1:J1');
+  worksheet.getCell('A1').value = 'LAPORAN ESTIMASI PENSIUN PEGAWAI NEGERI SIPIL';
+  worksheet.getCell('A1').font = { size: 14, bold: true, color: { argb: 'FF1E293B' } };
+  worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+  worksheet.mergeCells('A2:J2');
+  worksheet.getCell('A2').value = `PEMERINTAH KABUPATEN TOJO UNA-UNA - PROYEKSI TAHUN ${query.tahun || 'SEMUA TAHUN'}`;
+  worksheet.getCell('A2').font = { size: 10, bold: true, color: { argb: 'FF64748B' } };
+  worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+
+  // Setup Kolom Header
+  worksheet.getRow(4).values = [
+    'NO', 'NIP', 'NAMA LENGKAP', 'TGL LAHIR',
+    'USIA SAAT INI', 'BUP', 'TMT ESTIMASI PENSIUN',
+    'SISA WAKTU', 'JABATAN & KATEGORI', 'UNIT KERJA',
+  ];
+
+  worksheet.columns = [
+    { key: 'no', width: 6 },
+    { key: 'nip', width: 22 },
+    { key: 'nama', width: 35 },
+    { key: 'tgl_lahir', width: 14 },
+    { key: 'usia', width: 18 },
+    { key: 'bup', width: 8 },
+    { key: 'tmt_pensiun', width: 22 },
+    { key: 'sisa_waktu', width: 20 },
+    { key: 'jabatan', width: 45 },
+    { key: 'unit_kerja', width: 45 },
+  ];
+
+  const headerRow = worksheet.getRow(4);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF2563EB' },
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Add Data
+  result.all_filtered.forEach((item, i) => {
+    const row = worksheet.addRow({
+      no: i + 1,
+      nip: item.nip,
+      nama: item.nama,
+      tgl_lahir: item.tgl_lahir,
+      usia: item.usia_sekarang,
+      bup: item.bup,
+      tmt_pensiun: item.tmt_pensiun,
+      sisa_waktu: item.sisa_waktu,
+      jabatan: `${item.jabatan} (${item.kategori})`,
+      unit_kerja: item.unit_kerja,
+    });
+
+    if (i % 2 === 1) {
+      row.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF8FAFC' },
+      };
+    }
+  });
+
+  // Border & Alignment untuk data
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber >= 4) {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+      });
+    }
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer;
 };

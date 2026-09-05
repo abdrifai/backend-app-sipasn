@@ -45,14 +45,6 @@ model model_has_roles {
   @@index([model_id, model_type], map: "model_has_roles_model_id_model_type_index")
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model mysapk_aktivasi {
-  NIP      BigInt?
-  NAMA     String? @db.VarChar(36)
-  INSTANSI String? @db.VarChar(28)
-
-  @@ignore
-}
 
 model permissions {
   id                   BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
@@ -715,6 +707,7 @@ model ref_jnsjab {
   kode           String           @db.VarChar(10)
   jnsjab         String           @db.VarChar(255)
   kode_sapk      Int?
+  is_aktif       Int              @default(1)
   is_deleted     Boolean          @default(false)
   created_at     DateTime?        @db.Timestamp(0)
   updated_at     DateTime?        @db.Timestamp(0)
@@ -935,4 +928,91 @@ model rwt_pensiun {
   @@index([pegawai_id])
   @@index([kedudukanpns_id])
 }
+
+model ta_import_pns {
+  id                     String    @id @default(uuid()) @db.Char(36)
+  batch_id               String?   @db.Char(36)
+  file_name              String?   @db.VarChar(255)
+  pns_id                 String?   @db.VarChar(50)
+  nip_baru               String?   @db.VarChar(50)
+  nip_lama               String?   @db.VarChar(50)
+  nama                   String?   @db.VarChar(255)
+  gelar_depan            String?   @db.VarChar(50)
+  gelar_belakang         String?   @db.VarChar(50)
+  tempat_lahir           String?   @db.VarChar(255)
+  tempat_lahir_id        String?   @db.VarChar(50)
+  tanggal_lahir          String?   @db.VarChar(50)
+  jenis_kelamin          String?   @db.VarChar(20)
+  agama_id               String?   @db.VarChar(50)
+  agama_nama             String?   @db.VarChar(100)
+  jenis_kawin_id         String?   @db.VarChar(50)
+  jenis_kawin_nama       String?   @db.VarChar(100)
+  nik                    String?   @db.VarChar(50)
+  nomor_hp               String?   @db.VarChar(50)
+  email                  String?   @db.VarChar(255)
+  email_gov              String?   @db.VarChar(255)
+  alamat                 String?   @db.Text
+  npwp_nomor             String?   @db.VarChar(50)
+  bpjs                   String?   @db.VarChar(50)
+  jenis_pegawai_id       String?   @db.VarChar(50)
+  jenis_pegawai_nama     String?   @db.VarChar(100)
+  kedudukan_pns_id       String?   @db.VarChar(50)
+  kedudukan_pns_nama     String?   @db.VarChar(100)
+  status_cpns_pns        String?   @db.VarChar(50)
+  kartu_asn_virtual      String?   @db.VarChar(100)
+  nomor_sk_cpns          String?   @db.VarChar(255)
+  tanggal_sk_cpns        String?   @db.VarChar(50)
+  tmt_cpns               String?   @db.VarChar(50)
+  nomor_sk_pns           String?   @db.VarChar(255)
+  tanggal_sk_pns         String?   @db.VarChar(50)
+  tmt_pns                String?   @db.VarChar(50)
+  gol_awal_id            String?   @db.VarChar(50)
+  gol_awal_nama          String?   @db.VarChar(50)
+  gol_akhir_id           String?   @db.VarChar(50)
+  gol_akhir_nama         String?   @db.VarChar(50)
+  tmt_golongan           String?   @db.VarChar(50)
+  mk_tahun               String?   @db.VarChar(10)
+  mk_bulan               String?   @db.VarChar(10)
+  jenis_jabatan_id       String?   @db.VarChar(50)
+  jenis_jabatan_nama     String?   @db.VarChar(100)
+  jabatan_id             String?   @db.VarChar(50)
+  jabatan_nama           String?   @db.VarChar(255)
+  tmt_jabatan            String?   @db.VarChar(50)
+  tingkat_pendidikan_id  String?   @db.VarChar(50)
+  tingkat_pendidikan_nama String?  @db.VarChar(100)
+  pendidikan_id          String?   @db.VarChar(50)
+  pendidikan_nama        String?   @db.VarChar(255)
+  tahun_lulus            String?   @db.VarChar(20)
+  kpkn_id                String?   @db.VarChar(50)
+  kpkn_nama              String?   @db.VarChar(100)
+  lokasi_kerja_id        String?   @db.VarChar(50)
+  lokasi_kerja_nama      String?   @db.VarChar(255)
+  unor_id                String?   @db.VarChar(50)
+  unor_nama              String?   @db.VarChar(255)
+  instansi_induk_id      String?   @db.VarChar(50)
+  instansi_induk_nama    String?   @db.VarChar(255)
+  instansi_kerja_id      String?   @db.VarChar(50)
+  instansi_kerja_nama    String?   @db.VarChar(255)
+  satuan_kerja_induk_id  String?   @db.VarChar(50)
+  satuan_kerja_induk_nama String?  @db.VarChar(255)
+  satuan_kerja_kerja_id  String?   @db.VarChar(50)
+  satuan_kerja_kerja_nama String?  @db.VarChar(255)
+  is_valid_nik           String?   @db.VarChar(50)
+  nama_sekolah           String?   @db.VarChar(255)
+  flag_ikd               String?   @db.VarChar(50)
+  csv_created_at         String?   @db.VarChar(50)
+  csv_updated_at         String?   @db.VarChar(50)
+  eselon_id              String?   @db.VarChar(50)
+  eselon_nama            String?   @db.VarChar(100)
+  is_deleted             Boolean   @default(false)
+  created_at             DateTime? @default(now()) @db.Timestamp(0)
+  updated_at             DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([nip_baru])
+  @@index([pns_id])
+  @@index([nik])
+  @@index([batch_id])
+  @@index([unor_id])
+}
+
 

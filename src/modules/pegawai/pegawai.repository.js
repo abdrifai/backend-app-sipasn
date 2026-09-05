@@ -550,18 +550,8 @@ export const findEstimasiPensiun = async ({
     if (!tglLhr || isNaN(tglLhr.getTime())) return null;
 
     const jab = p.rwt_jabatan?.ref_jabatan;
-    let bup = jab?.bup;
-    if (!bup) {
-      if (jab?.kategori === 'STRUKTURAL' && jab?.ref_eselon?.eselon_kode && [21, 22].includes(jab.ref_eselon.eselon_kode)) {
-        bup = 60;
-      } else if (jab?.kategori === 'FUNGSIONAL' && jab?.nama_jabatan && (jab.nama_jabatan.toLowerCase().includes('madya') || jab.nama_jabatan.toLowerCase().includes('guru') || jab.nama_jabatan.toLowerCase().includes('dokter'))) {
-        bup = 60;
-      } else if (jab?.kategori === 'FUNGSIONAL' && jab?.nama_jabatan && jab.nama_jabatan.toLowerCase().includes('utama')) {
-        bup = 65;
-      } else {
-        bup = 58;
-      }
-    }
+    // Ambil BUP langsung dari ref_jabatan.bup, fallback 58 jika jabatan tidak terdaftar
+    const bup = jab?.bup ?? 58;
 
     const birthYear = tglLhr.getFullYear();
     const birthMonth = tglLhr.getMonth(); // 0-indexed
@@ -854,15 +844,23 @@ const createJabatanResolver = async () => {
   const normalize = (s) => (s || '').trim().toLowerCase();
 
   const refJabs = await prisma.ref_jabatan.findMany({
-    where: { is_deleted: false, kategori: 'STRUKTURAL' },
-    select: { id: true, nama_jabatan: true, eselon_id: true, jns_jab_id: true },
+    where: { is_deleted: false },
+    select: { id: true, nama_jabatan: true, eselon_id: true, jns_jab_id: true, jenjang_jab_id: true, kategori: true },
   });
 
   const jabMapById = new Map();
   const jabMapByName = new Map();
   for (const j of refJabs) {
-    jabMapById.set(j.id, j);
-    jabMapByName.set(normalize(j.nama_jabatan), j);
+    const formatted = {
+      id: j.id,
+      nama_jabatan: j.nama_jabatan,
+      eselon_id: j.eselon_id,
+      jns_jab_id: j.jns_jab_id,
+      jenjang_jab_id: j.jenjang_jab_id ? String(j.jenjang_jab_id) : null,
+      kategori: j.kategori,
+    };
+    jabMapById.set(j.id, formatted);
+    jabMapByName.set(normalize(j.nama_jabatan), formatted);
   }
 
   return (nmUnor, level, jabId) => {
@@ -884,6 +882,7 @@ const createJabatanResolver = async () => {
           nm_jab: existingJab.nama_jabatan,
           eselon_id: existingJab.eselon_id,
           jns_jab_id: existingJab.jns_jab_id,
+          jenjang_jab_id: existingJab.jenjang_jab_id,
         };
       }
     }
@@ -891,7 +890,13 @@ const createJabatanResolver = async () => {
     // 2. Jika nama unor sama persis dengan nama jabatan
     if (jabMapByName.has(normalize(clean))) {
       const j = jabMapByName.get(normalize(clean));
-      return { jab_id: j.id, nm_jab: j.nama_jabatan, eselon_id: j.eselon_id, jns_jab_id: j.jns_jab_id };
+      return {
+        jab_id: j.id,
+        nm_jab: j.nama_jabatan,
+        eselon_id: j.eselon_id,
+        jns_jab_id: j.jns_jab_id,
+        jenjang_jab_id: j.jenjang_jab_id,
+      };
     }
 
     // 3. Prediksi nama pimpinan berdasarkan pola hierarki unit
@@ -947,6 +952,7 @@ const createJabatanResolver = async () => {
           nm_jab: found.nama_jabatan,
           eselon_id: found.eselon_id,
           jns_jab_id: found.jns_jab_id,
+          jenjang_jab_id: found.jenjang_jab_id,
         };
       }
     }
@@ -955,7 +961,8 @@ const createJabatanResolver = async () => {
       jab_id: null,
       nm_jab: candidates[0] || `KEPALA ${upper}`,
       eselon_id: null,
-      jns_jab_id: 'cb96a38e-5d24-46a8-bc47-7f4677ff603d',
+      jns_jab_id: null,
+      jenjang_jab_id: null,
     };
   };
 };
@@ -985,6 +992,15 @@ export const findAllUnorInduk = async (onlyActive = true) => {
       jab_id: true,
       parent_id: true,
       isAktif: true,
+      ref_jabatan: {
+        select: {
+          id: true,
+          nama_jabatan: true,
+          eselon_id: true,
+          jns_jab_id: true,
+          jenjang_jab_id: true,
+        },
+      },
     },
     orderBy: [
       { nmUnor: 'asc' },
@@ -994,13 +1010,16 @@ export const findAllUnorInduk = async (onlyActive = true) => {
   return unors.map((u) => {
     const cleanNm = u.nmUnor ? u.nmUnor.trim() : '';
     const resolved = resolveJabatan(cleanNm, u.level, u.jab_id);
+    const jab = u.ref_jabatan;
+
     return {
       ...u,
       nmUnor: cleanNm,
-      nm_jab: resolved.nm_jab,
-      resolved_jab_id: resolved.jab_id,
-      eselon_id: resolved.eselon_id,
-      jns_jab_id: resolved.jns_jab_id,
+      nm_jab: jab?.nama_jabatan || resolved.nm_jab,
+      resolved_jab_id: jab?.id || u.jab_id || resolved.jab_id,
+      eselon_id: jab?.eselon_id || resolved.eselon_id,
+      jns_jab_id: jab?.jns_jab_id || resolved.jns_jab_id,
+      jenjang_jab_id: jab?.jenjang_jab_id ? String(jab.jenjang_jab_id) : (resolved.jenjang_jab_id || null),
     };
   });
 };
@@ -1019,6 +1038,15 @@ export const findUnorById = async (id) => {
       nmUnor: true,
       level: true,
       jab_id: true,
+      ref_jabatan: {
+        select: {
+          id: true,
+          nama_jabatan: true,
+          eselon_id: true,
+          jns_jab_id: true,
+          jenjang_jab_id: true,
+        },
+      },
     },
   });
 };
@@ -1049,6 +1077,15 @@ export const findUnorTree = async (onlyActive = true) => {
       level: true,
       jab_id: true,
       isAktif: true,
+      ref_jabatan: {
+        select: {
+          id: true,
+          nama_jabatan: true,
+          eselon_id: true,
+          jns_jab_id: true,
+          jenjang_jab_id: true,
+        },
+      },
     },
     orderBy: { nmUnor: 'asc' },
   });
@@ -1067,6 +1104,7 @@ export const findUnorTree = async (onlyActive = true) => {
       const cleanName = item.nmUnor.trim();
       const resolved = resolveJabatan(cleanName, item.level, item.jab_id);
       const isInactive = item.isAktif === 0;
+      const jab = item.ref_jabatan;
 
       if (parentName && normalize(cleanName) === normalize(parentName)) {
         const grandchildren = buildTree(item.id, cleanName);
@@ -1078,10 +1116,11 @@ export const findUnorTree = async (onlyActive = true) => {
           label: cleanName + (isInactive ? ' (Non-Aktif)' : ''),
           level: item.level,
           isAktif: item.isAktif,
-          nm_jab: resolved.nm_jab,
-          jab_id: resolved.jab_id,
-          eselon_id: resolved.eselon_id,
-          jns_jab_id: resolved.jns_jab_id,
+          nm_jab: jab?.nama_jabatan || resolved.nm_jab,
+          jab_id: jab?.id || item.jab_id || resolved.jab_id,
+          eselon_id: jab?.eselon_id || resolved.eselon_id,
+          jns_jab_id: jab?.jns_jab_id || resolved.jns_jab_id,
+          jenjang_jab_id: jab?.jenjang_jab_id ? String(jab.jenjang_jab_id) : (resolved.jenjang_jab_id || null),
           children,
         });
       }

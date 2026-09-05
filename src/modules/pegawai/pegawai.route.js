@@ -72,11 +72,6 @@ router.get("/duk", pegawaiController.getDUK);
 // GET /api/pegawai/duk/export - Export DUK ke Excel
 router.get("/duk/export", pegawaiController.exportDUK);
 
-// GET /api/pegawai/pensiun - Laporan Estimasi Pensiun Pegawai
-router.get("/pensiun", pegawaiController.getEstimasiPensiun);
-
-// GET /api/pegawai/pensiun/export - Export Estimasi Pensiun ke Excel
-router.get("/pensiun/export", pegawaiController.exportEstimasiPensiun);
 
 // GET /api/pegawai/stats - Statistik global
 router.get("/stats", pegawaiController.getStats);
