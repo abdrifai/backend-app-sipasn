@@ -2370,6 +2370,42 @@ paths:
         '200':
           $ref: '#/components/responses/SuccessResponse'
 
+  /api/ref-unor/target-parents:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Pilihan parent unit organisasi tujuan untuk pemindahan
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/move:
+    post:
+      tags:
+        - Ref Unit Organisasi
+      summary: Pindahkan unit organisasi ke atasan / instansi baru
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-unor/reorder:
+    post:
+      tags:
+        - Ref Unit Organisasi
+      summary: Atur urutan (no_urut) daftar unit organisasi
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
   /api/ref-unor:
     get:
       tags:

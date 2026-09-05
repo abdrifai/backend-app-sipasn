@@ -169,3 +169,21 @@ export const deleteSubUnorSub = asyncHandler(async (req, res) => {
   await service.deleteSubUnorSub(req.params.id);
   sendSuccess(res, 200, "Sub unit organisasi sub berhasil dihapus");
 });
+
+// --- MOVE / TRANSFER UNOR ---
+
+export const getTargetParents = asyncHandler(async (req, res) => {
+  const data = await service.getTargetParentOptions(req.query);
+  sendSuccess(res, 200, "Daftar unit tujuan berhasil diambil", data);
+});
+
+export const moveUnor = asyncHandler(async (req, res) => {
+  const data = await service.moveUnorNode(req.body);
+  sendSuccess(res, 200, "Unit organisasi berhasil dipindahkan", data);
+});
+
+export const reorderUnor = asyncHandler(async (req, res) => {
+  const data = await service.reorderUnorNodes(req.body);
+  sendSuccess(res, 200, "Urutan unit organisasi berhasil diperbarui", data);
+});
+

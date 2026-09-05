@@ -47,6 +47,11 @@ router.post("/sub-sub", validate(validation.createSubUnorSubSchema), controller.
 router.patch("/sub-sub/:id", validate(validation.updateSubUnorSubSchema), controller.updateSubUnorSub);
 router.delete("/sub-sub/:id", controller.deleteSubUnorSub);
 
+// --- MOVE / TRANSFER UNOR ---
+router.get("/target-parents", controller.getTargetParents);
+router.post("/move", validate(validation.moveUnorSchema), controller.moveUnor);
+router.post("/reorder", validate(validation.reorderUnorSchema), controller.reorderUnor);
+
 // --- UNOR ---
 router.get("/", controller.getAllUnor);
 router.get("/:id", controller.getUnorById);
@@ -55,3 +60,4 @@ router.patch("/:id", validate(validation.updateUnorSchema), controller.updateUno
 router.delete("/:id", controller.deleteUnor);
 
 export default router;
+

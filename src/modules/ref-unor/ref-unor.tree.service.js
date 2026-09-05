@@ -10,7 +10,7 @@ const normalize = (str) => (str || "").trim().toLowerCase();
  * Menghilangkan node dummy yang namanya sama persis dengan parent-nya sehingga hierarki murni parent -> child nyata
  */
 export const getUnorTree = async (params = {}) => {
-  const { kode, level, parentId } = params;
+  const { kode, level, parentId, exclude_id } = params;
 
   // Level 1: Instansi (Root)
   if (!level) {
@@ -56,6 +56,7 @@ export const getUnorTree = async (params = {}) => {
     kode: true,
     nmUnor: true,
     level: true,
+    no_urut: true,
     jab_id: true,
     is_pimpinan: true,
     isAktif: true,
@@ -70,10 +71,16 @@ export const getUnorTree = async (params = {}) => {
       },
     },
     children: {
-      where: { is_deleted: false, isAktif: 1 },
+      where: {
+        is_deleted: false,
+        isAktif: 1,
+        ...(exclude_id ? { id: { not: exclude_id } } : {}),
+      },
       select: { id: true, nmUnor: true },
     },
   };
+
+  const excludeFilter = exclude_id ? { id: { not: exclude_id } } : {};
 
   if (level === "instansi") {
     rawData = await prisma.ref_unitorganisasi.findMany({
@@ -82,9 +89,10 @@ export const getUnorTree = async (params = {}) => {
         parent_id: null,
         is_deleted: false,
         isAktif: 1,
+        ...excludeFilter,
       },
       select: treeNodeSelect,
-      orderBy: { kode: "asc" },
+      orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }, { kode: "asc" }],
     });
   } else {
     // Generic Parent-Child Level (Induk -> Unor -> Sub -> SubSub)
@@ -93,9 +101,10 @@ export const getUnorTree = async (params = {}) => {
         parent_id: parentId,
         is_deleted: false,
         isAktif: 1,
+        ...excludeFilter,
       },
       select: treeNodeSelect,
-      orderBy: { kode: "asc" },
+      orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }, { kode: "asc" }],
     });
   }
 
@@ -117,6 +126,7 @@ export const getUnorTree = async (params = {}) => {
       kode: item.kode,
       nmUnor: item.nmUnor,
       level: item.level,
+      no_urut: item.no_urut ?? 1,
       is_pimpinan: item.is_pimpinan,
       isAktif: item.isAktif,
       jab_id: item.jab_id,
@@ -132,3 +142,4 @@ export const getUnorTree = async (params = {}) => {
     };
   });
 };
+

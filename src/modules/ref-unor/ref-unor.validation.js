@@ -19,8 +19,10 @@ const commonUnorSchema = {
   tglPeraturan: Joi.alternatives().try(Joi.date().iso(), Joi.string()).allow(null, "").optional(),
   tahun: Joi.alternatives().try(Joi.number().integer(), Joi.string()).allow(null, "").optional(),
   ket: Joi.string().allow(null, "").optional(),
+  no_urut: Joi.alternatives().try(Joi.number().integer().min(1), Joi.string()).allow(null, "").optional(),
   isAktif: Joi.alternatives().try(Joi.number().integer().valid(0, 1), Joi.string()).optional(),
 };
+
 
 export const createJnsUnorSchema = Joi.object({
   instansi_id: Joi.string().max(36).required(),
@@ -65,6 +67,7 @@ export const updateUnorIndukSchema = Joi.object({
   tglPeraturan: Joi.alternatives().try(Joi.date().iso(), Joi.string()).allow(null, "").optional(),
   tahun: Joi.alternatives().try(Joi.number().integer(), Joi.string()).allow(null, "").optional(),
   ket: Joi.string().allow(null, "").optional(),
+  no_urut: Joi.alternatives().try(Joi.number().integer().min(1), Joi.string()).allow(null, "").optional(),
   isAktif: Joi.alternatives().try(Joi.number().integer().valid(0, 1), Joi.string()).optional(),
   kategori_jab: Joi.string().valid("STRUKTURAL", "FUNGSIONAL", "PELAKSANA").allow(null, "").optional(),
   eselon_id: Joi.string().max(36).allow(null, "").optional(),
@@ -99,6 +102,7 @@ const commonUpdateUnorSchema = {
   tglPeraturan: Joi.alternatives().try(Joi.date().iso(), Joi.string()).allow(null, "").optional(),
   tahun: Joi.alternatives().try(Joi.number().integer(), Joi.string()).allow(null, "").optional(),
   ket: Joi.string().allow(null, "").optional(),
+  no_urut: Joi.alternatives().try(Joi.number().integer().min(1), Joi.string()).allow(null, "").optional(),
   isAktif: Joi.alternatives().try(Joi.number().integer().valid(0, 1), Joi.string()).optional(),
 };
 
@@ -131,3 +135,24 @@ export const updateSubUnorSubSchema = Joi.object({
   subUnor_id: Joi.string().max(255).allow(null, "").optional(),
   subUnor_kode: Joi.string().max(255).allow(null, "").optional(),
 }).min(1);
+
+export const moveUnorSchema = Joi.object({
+  id: Joi.string().max(255).required(),
+  target_parent_id: Joi.string().max(255).allow(null, "").optional(),
+  target_instansi_id: Joi.string().max(255).allow(null, "").optional(),
+  target_type: Joi.string().valid("instansi", "unor").default("unor"),
+});
+
+export const reorderUnorSchema = Joi.object({
+  items: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().max(255).required(),
+        no_urut: Joi.number().integer().min(1).required(),
+      })
+    )
+    .min(1)
+    .required(),
+});
+
+

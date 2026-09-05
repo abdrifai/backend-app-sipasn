@@ -315,10 +315,11 @@ export const getAllUnorInduk = async (params = {}) => {
         nmUnor: true,
         kode: true,
         level: true,
+        no_urut: true,
         isAktif: true,
         instansi_id: true,
       },
-      orderBy: { nmUnor: "asc" },
+      orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }],
     }),
     prisma.ref_unitorganisasi.count({ where }),
   ]);
@@ -336,6 +337,21 @@ export const getAllUnorInduk = async (params = {}) => {
 
 export const getUnorIndukById = async (id) => getUnorByIdGeneral(id, "induk");
 
+const getNextNoUrut = async (parentId, level, instansiId = null) => {
+  const where = {
+    is_deleted: false,
+    level,
+    ...(parentId ? { parent_id: parentId } : { parent_id: null }),
+    ...(instansiId ? { instansi_id: instansiId } : {}),
+  };
+  const maxRecord = await prisma.ref_unitorganisasi.findFirst({
+    where,
+    orderBy: { no_urut: "desc" },
+    select: { no_urut: true },
+  });
+  return (maxRecord?.no_urut || 0) + 1;
+};
+
 export const createUnorInduk = async (data) => {
   const id = uuidv4();
   const generatedKode = data.kode || `${data.instansi_kode || "7209"}${Date.now().toString().slice(-5)}`;
@@ -352,6 +368,10 @@ export const createUnorInduk = async (data) => {
     });
   }
 
+  const noUrut = data.no_urut !== undefined && data.no_urut !== null && data.no_urut !== ""
+    ? parseInt(data.no_urut, 10)
+    : await getNextNoUrut(null, "induk", data.instansi_id || null);
+
   return prisma.ref_unitorganisasi.create({
     data: {
       id,
@@ -360,6 +380,7 @@ export const createUnorInduk = async (data) => {
       kode: generatedKode,
       nmUnor: data.nmUnor,
       level: "induk",
+      no_urut: noUrut,
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       peraturan: data.peraturan || null,
@@ -400,10 +421,12 @@ export const updateUnorInduk = async (id, data) => {
       ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
       ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
       ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.no_urut !== undefined ? { no_urut: data.no_urut !== null && data.no_urut !== '' ? parseInt(data.no_urut, 10) : 1 } : {}),
       ...(data.isAktif !== undefined ? { isAktif: data.isAktif } : {}),
     },
   });
 };
+
 
 export const deleteUnorInduk = async (id) => {
   await getUnorIndukById(id);
@@ -430,7 +453,7 @@ export const getAllUnor = async (params = {}) => {
       where,
       skip: parseInt(skip),
       take: parseInt(limit),
-      orderBy: { kode: "asc" },
+      orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }, { kode: "asc" }],
     }),
     prisma.ref_unitorganisasi.count({ where }),
   ]);
@@ -463,6 +486,10 @@ export const createUnor = async (data) => {
     (induk && data.nmUnor?.trim().toLowerCase() === induk.nmUnor?.trim().toLowerCase())
   );
 
+  const noUrut = data.no_urut !== undefined && data.no_urut !== null && data.no_urut !== ""
+    ? parseInt(data.no_urut, 10)
+    : await getNextNoUrut(data.unorinduk_id, "unor", induk?.instansi_id || null);
+
   return prisma.ref_unitorganisasi.create({
     data: {
       id,
@@ -471,6 +498,7 @@ export const createUnor = async (data) => {
       kode: generatedKode,
       nmUnor: data.nmUnor,
       level: "unor",
+      no_urut: noUrut,
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       peraturan: data.peraturan || null,
@@ -511,6 +539,7 @@ export const updateUnor = async (id, data) => {
       ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
       ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
       ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.no_urut !== undefined ? { no_urut: data.no_urut !== null && data.no_urut !== "" ? parseInt(data.no_urut, 10) : 1 } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
       ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
@@ -542,7 +571,7 @@ export const getAllSubUnor = async (params = {}) => {
       where,
       skip: parseInt(skip),
       take: parseInt(limit),
-      orderBy: { kode: "asc" },
+      orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }, { kode: "asc" }],
     }),
     prisma.ref_unitorganisasi.count({ where }),
   ]);
@@ -582,6 +611,10 @@ export const createSubUnor = async (data) => {
     (parentUnor && data.nmUnor?.trim().toLowerCase() === parentUnor.nmUnor?.trim().toLowerCase())
   );
 
+  const noUrut = data.no_urut !== undefined && data.no_urut !== null && data.no_urut !== ""
+    ? parseInt(data.no_urut, 10)
+    : await getNextNoUrut(data.unor_id, "sub", parentUnor?.instansi_id || null);
+
   return prisma.ref_unitorganisasi.create({
     data: {
       id,
@@ -590,6 +623,7 @@ export const createSubUnor = async (data) => {
       kode: generatedKode,
       nmUnor: data.nmUnor,
       level: "sub",
+      no_urut: noUrut,
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       peraturan: data.peraturan || null,
@@ -630,6 +664,7 @@ export const updateSubUnor = async (id, data) => {
       ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
       ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
       ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.no_urut !== undefined ? { no_urut: data.no_urut !== null && data.no_urut !== "" ? parseInt(data.no_urut, 10) : 1 } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
       ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
@@ -661,7 +696,7 @@ export const getAllSubUnorSub = async (params = {}) => {
       where,
       skip: parseInt(skip),
       take: parseInt(limit),
-      orderBy: { kode: "asc" },
+      orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }, { kode: "asc" }],
     }),
     prisma.ref_unitorganisasi.count({ where }),
   ]);
@@ -696,6 +731,10 @@ export const createSubUnorSub = async (data) => {
     });
   }
 
+  const noUrut = data.no_urut !== undefined && data.no_urut !== null && data.no_urut !== ""
+    ? parseInt(data.no_urut, 10)
+    : await getNextNoUrut(data.subUnor_id, "sub-sub", parentSub?.instansi_id || null);
+
   return prisma.ref_unitorganisasi.create({
     data: {
       id,
@@ -704,6 +743,7 @@ export const createSubUnorSub = async (data) => {
       kode: generatedKode,
       nmUnor: data.nmUnor,
       level: "sub-sub",
+      no_urut: noUrut,
       jab_id: targetJabId,
       jnsUnor_id: data.jnsUnor_id || null,
       peraturan: data.peraturan || null,
@@ -744,6 +784,7 @@ export const updateSubUnorSub = async (id, data) => {
       ...(data.tglPeraturan !== undefined ? { tglPeraturan: data.tglPeraturan ? new Date(data.tglPeraturan) : null } : {}),
       ...(data.tahun !== undefined ? { tahun: data.tahun !== null ? parseInt(data.tahun, 10) : null } : {}),
       ...(data.ket !== undefined ? { ket: data.ket } : {}),
+      ...(data.no_urut !== undefined ? { no_urut: data.no_urut !== null && data.no_urut !== "" ? parseInt(data.no_urut, 10) : 1 } : {}),
       ...(targetJabId !== undefined ? { jab_id: targetJabId } : {}),
       ...(data.isAktif !== undefined ? { isAktif: parseInt(data.isAktif, 10) } : {}),
     },
@@ -756,3 +797,268 @@ export const deleteSubUnorSub = async (id) => {
     return softDeleteTreeCascade(id, tx);
   });
 };
+
+// --- PINDAH UNIT ORGANISASI (MOVE / TRANSFER) ---
+
+export const getAllDescendantIds = async (nodeId) => {
+  const descendants = [];
+  const queue = [nodeId];
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    const children = await prisma.ref_unitorganisasi.findMany({
+      where: { parent_id: curr, is_deleted: false },
+      select: { id: true },
+    });
+    for (const child of children) {
+      descendants.push(child.id);
+      queue.push(child.id);
+    }
+  }
+  return descendants;
+};
+
+export const getTargetParentOptions = async (params = {}) => {
+  const { exclude_id, search = "", instansi_id, instansi_kode = "7209" } = params;
+
+  let excludeIds = [];
+  if (exclude_id) {
+    const descIds = await getAllDescendantIds(exclude_id);
+    excludeIds = [exclude_id, ...descIds];
+  }
+
+  const trimmedSearch = search ? search.trim() : "";
+
+  const instansiFilter = instansi_id
+    ? { instansi_id }
+    : instansi_kode
+    ? {
+        OR: [
+          { instansi_id: "47a536f3-8610-4492-aa81-d3a6e5b4399f" },
+          { kode: { startsWith: String(instansi_kode) } },
+          { ref_instansi: { kode: parseInt(instansi_kode, 10) || 7209 } },
+          { ref_instansi: { instansi: { contains: "TOJO UNA-UNA" } } },
+        ],
+      }
+    : {};
+
+  const where = {
+    is_deleted: false,
+    level: { in: ["induk", "unor", "sub"] }, // Level sub-sub tidak dapat memiliki cabang lagi
+    ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
+    ...instansiFilter,
+    ...(trimmedSearch ? { nmUnor: { contains: trimmedSearch } } : {}),
+  };
+
+  const data = await prisma.ref_unitorganisasi.findMany({
+    where,
+    select: {
+      id: true,
+      kode: true,
+      nmUnor: true,
+      level: true,
+      no_urut: true,
+      parent_id: true,
+      instansi_id: true,
+      parent: {
+        select: {
+          id: true,
+          nmUnor: true,
+          level: true,
+          parent: {
+            select: {
+              id: true,
+              nmUnor: true,
+              level: true,
+            },
+          },
+        },
+      },
+    },
+    take: 2000,
+    orderBy: [{ level: "asc" }, { no_urut: "asc" }, { nmUnor: "asc" }],
+  });
+
+  return data.map((item) => {
+    const parts = [];
+    if (item.parent?.parent?.nmUnor) parts.push(item.parent.parent.nmUnor);
+    if (item.parent?.nmUnor) parts.push(item.parent.nmUnor);
+    parts.push(item.nmUnor);
+    return {
+      id: item.id,
+      value: item.id,
+      label: item.nmUnor,
+      level: item.level,
+      kode: item.kode,
+      no_urut: item.no_urut,
+      path: parts.join(" > "),
+    };
+  });
+};
+
+export const moveUnorNode = async (payload) => {
+  const { id, target_parent_id, target_instansi_id, target_type } = payload;
+
+  const node = await prisma.ref_unitorganisasi.findFirst({
+    where: { id, is_deleted: false },
+    select: {
+      id: true,
+      nmUnor: true,
+      level: true,
+      parent_id: true,
+      instansi_id: true,
+      kode: true,
+    },
+  });
+
+  if (!node) {
+    throw new AppError("Unit organisasi yang akan dipindahkan tidak ditemukan", 404);
+  }
+
+  let newLevel = "induk";
+  let newParentId = null;
+  let newInstansiId = node.instansi_id;
+
+  if (target_type === "instansi" || (!target_parent_id && target_instansi_id)) {
+    const instansiId = target_instansi_id || node.instansi_id;
+    const instansi = await prisma.ref_instansi.findFirst({
+      where: { id: instansiId, is_deleted: false },
+      select: { id: true, instansi: true, kode: true },
+    });
+    if (!instansi) {
+      throw new AppError("Instansi tujuan tidak ditemukan", 404);
+    }
+    newLevel = "induk";
+    newParentId = null;
+    newInstansiId = instansi.id;
+  } else {
+    if (!target_parent_id) {
+      throw new AppError("Silakan pilih unit organisasi tujuan", 400);
+    }
+    if (target_parent_id === id) {
+      throw new AppError("Tidak dapat memindahkan unit organisasi ke dirinya sendiri", 400);
+    }
+
+    const descendantIds = await getAllDescendantIds(id);
+    if (descendantIds.includes(target_parent_id)) {
+      throw new AppError("Tidak dapat memindahkan unit organisasi ke cabang di bawahnya sendiri", 400);
+    }
+
+    const targetParent = await prisma.ref_unitorganisasi.findFirst({
+      where: { id: target_parent_id, is_deleted: false },
+      select: {
+        id: true,
+        nmUnor: true,
+        level: true,
+        instansi_id: true,
+        kode: true,
+      },
+    });
+
+    if (!targetParent) {
+      throw new AppError("Unit organisasi tujuan tidak ditemukan", 404);
+    }
+
+    if (targetParent.level === "sub-sub") {
+      throw new AppError("Unit tujuan sudah berada di tingkat terdalam (sub-sub), tidak dapat menambah sub-unit lagi", 400);
+    }
+
+    if (targetParent.level === "induk") {
+      newLevel = "unor";
+    } else if (targetParent.level === "unor") {
+      newLevel = "sub";
+    } else if (targetParent.level === "sub") {
+      newLevel = "sub-sub";
+    }
+
+    newParentId = targetParent.id;
+    newInstansiId = targetParent.instansi_id || node.instansi_id;
+  }
+
+  // Hitung nomor urut otomatis untuk level dan parent baru
+  const newNoUrut = await getNextNoUrut(newParentId, newLevel, newInstansiId);
+
+  // Hierarki level map untuk cascade update anak
+  const levelHierarchyMap = {
+    induk: "unor",
+    unor: "sub",
+    sub: "sub-sub",
+    "sub-sub": "sub-sub",
+  };
+
+  const cascadeUpdateChildrenLevels = async (parentId, parentLevel, tx) => {
+    const nextChildLevel = levelHierarchyMap[parentLevel] || "sub-sub";
+    const children = await tx.ref_unitorganisasi.findMany({
+      where: { parent_id: parentId, is_deleted: false },
+      select: { id: true, level: true },
+    });
+
+    for (const child of children) {
+      await tx.ref_unitorganisasi.update({
+        where: { id: child.id },
+        data: {
+          level: nextChildLevel,
+          instansi_id: newInstansiId,
+        },
+        select: { id: true },
+      });
+      await cascadeUpdateChildrenLevels(child.id, nextChildLevel, tx);
+    }
+  };
+
+  const updatedNode = await prisma.$transaction(async (tx) => {
+    const updated = await tx.ref_unitorganisasi.update({
+      where: { id },
+      data: {
+        parent_id: newParentId,
+        instansi_id: newInstansiId,
+        level: newLevel,
+        no_urut: newNoUrut,
+      },
+      select: {
+        id: true,
+        nmUnor: true,
+        level: true,
+        parent_id: true,
+        instansi_id: true,
+        no_urut: true,
+        kode: true,
+      },
+    });
+
+    await cascadeUpdateChildrenLevels(id, newLevel, tx);
+    return updated;
+  });
+
+  return updatedNode;
+};
+
+// --- REORDER UNOR NODES ---
+
+export const reorderUnorNodes = async (payload) => {
+  const { items } = payload;
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new AppError("Daftar unit organisasi yang akan diurutkan tidak valid", 400);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updates = [];
+    for (const item of items) {
+      if (!item.id || item.no_urut === undefined) continue;
+      const updated = await tx.ref_unitorganisasi.update({
+        where: { id: item.id },
+        data: {
+          no_urut: parseInt(item.no_urut, 10),
+        },
+        select: {
+          id: true,
+          nmUnor: true,
+          no_urut: true,
+        },
+      });
+      updates.push(updated);
+    }
+    return updates;
+  });
+};
+
+
