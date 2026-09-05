@@ -1,9 +1,10 @@
 import rateLimit from "express-rate-limit";
 
-// Rate limit umum — 100 req / 15 menit per IP
+// Rate limit umum — bypass di development, 1000 req di production
 export const globalRateLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 1000,
+  skip: () => process.env.NODE_ENV === "development",
   message: {
     success: false,
     statusCode: 429,
@@ -12,10 +13,11 @@ export const globalRateLimiter = rateLimit({
   },
 });
 
-// Rate limit auth — 10 req / 15 menit per IP
+// Rate limit auth — bypass di development, 10 req di production
 export const authRateLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
   max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 10,
+  skip: () => process.env.NODE_ENV === "development",
   message: {
     success: false,
     statusCode: 429,
