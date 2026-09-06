@@ -937,75 +937,75 @@ model ta_import_pns {
   file_name              String?   @db.Text
   pns_id                 String?   @db.VarChar(50)
   nip_baru               String?   @db.VarChar(50)
-  nip_lama               String?   @db.VarChar(50)
+  nip_lama               String?   @db.Text
   nama                   String?   @db.Text
-  gelar_depan            String?   @db.VarChar(50)
-  gelar_belakang         String?   @db.VarChar(50)
+  gelar_depan            String?   @db.Text
+  gelar_belakang         String?   @db.Text
   tempat_lahir           String?   @db.Text
-  tempat_lahir_id        String?   @db.VarChar(50)
-  tanggal_lahir          String?   @db.VarChar(50)
-  jenis_kelamin          String?   @db.VarChar(20)
-  agama_id               String?   @db.VarChar(50)
-  agama_nama             String?   @db.VarChar(100)
-  jenis_kawin_id         String?   @db.VarChar(50)
-  jenis_kawin_nama       String?   @db.VarChar(100)
+  tempat_lahir_id        String?   @db.Text
+  tanggal_lahir          String?   @db.Text
+  jenis_kelamin          String?   @db.Text
+  agama_id               String?   @db.Text
+  agama_nama             String?   @db.Text
+  jenis_kawin_id         String?   @db.Text
+  jenis_kawin_nama       String?   @db.Text
   nik                    String?   @db.VarChar(50)
-  nomor_hp               String?   @db.VarChar(50)
+  nomor_hp               String?   @db.Text
   email                  String?   @db.Text
   email_gov              String?   @db.Text
   alamat                 String?   @db.Text
-  npwp_nomor             String?   @db.VarChar(50)
-  bpjs                   String?   @db.VarChar(50)
-  jenis_pegawai_id       String?   @db.VarChar(50)
-  jenis_pegawai_nama     String?   @db.VarChar(100)
-  kedudukan_pns_id       String?   @db.VarChar(50)
-  kedudukan_pns_nama     String?   @db.VarChar(100)
-  status_cpns_pns        String?   @db.VarChar(50)
-  kartu_asn_virtual      String?   @db.VarChar(100)
+  npwp_nomor             String?   @db.Text
+  bpjs                   String?   @db.Text
+  jenis_pegawai_id       String?   @db.Text
+  jenis_pegawai_nama     String?   @db.Text
+  kedudukan_pns_id       String?   @db.Text
+  kedudukan_pns_nama     String?   @db.Text
+  status_cpns_pns        String?   @db.Text
+  kartu_asn_virtual      String?   @db.Text
   nomor_sk_cpns          String?   @db.Text
-  tanggal_sk_cpns        String?   @db.VarChar(50)
-  tmt_cpns               String?   @db.VarChar(50)
+  tanggal_sk_cpns        String?   @db.Text
+  tmt_cpns               String?   @db.Text
   nomor_sk_pns           String?   @db.Text
-  tanggal_sk_pns         String?   @db.VarChar(50)
-  tmt_pns                String?   @db.VarChar(50)
-  gol_awal_id            String?   @db.VarChar(50)
-  gol_awal_nama          String?   @db.VarChar(50)
-  gol_akhir_id           String?   @db.VarChar(50)
-  gol_akhir_nama         String?   @db.VarChar(50)
-  tmt_golongan           String?   @db.VarChar(50)
-  mk_tahun               String?   @db.VarChar(10)
-  mk_bulan               String?   @db.VarChar(10)
-  jenis_jabatan_id       String?   @db.VarChar(50)
-  jenis_jabatan_nama     String?   @db.VarChar(100)
-  jabatan_id             String?   @db.VarChar(50)
+  tanggal_sk_pns         String?   @db.Text
+  tmt_pns                String?   @db.Text
+  gol_awal_id            String?   @db.Text
+  gol_awal_nama          String?   @db.Text
+  gol_akhir_id           String?   @db.Text
+  gol_akhir_nama         String?   @db.Text
+  tmt_golongan           String?   @db.Text
+  mk_tahun               String?   @db.Text
+  mk_bulan               String?   @db.Text
+  jenis_jabatan_id       String?   @db.Text
+  jenis_jabatan_nama     String?   @db.Text
+  jabatan_id             String?   @db.Text
   jabatan_nama           String?   @db.Text
-  tmt_jabatan            String?   @db.VarChar(50)
-  tingkat_pendidikan_id  String?   @db.VarChar(50)
-  tingkat_pendidikan_nama String?  @db.VarChar(100)
-  pendidikan_id          String?   @db.VarChar(50)
+  tmt_jabatan            String?   @db.Text
+  tingkat_pendidikan_id  String?   @db.Text
+  tingkat_pendidikan_nama String?  @db.Text
+  pendidikan_id          String?   @db.Text
   pendidikan_nama        String?   @db.Text
-  tahun_lulus            String?   @db.VarChar(20)
-  kpkn_id                String?   @db.VarChar(50)
-  kpkn_nama              String?   @db.VarChar(100)
-  lokasi_kerja_id        String?   @db.VarChar(50)
+  tahun_lulus            String?   @db.Text
+  kpkn_id                String?   @db.Text
+  kpkn_nama              String?   @db.Text
+  lokasi_kerja_id        String?   @db.Text
   lokasi_kerja_nama      String?   @db.Text
   unor_id                String?   @db.VarChar(50)
   unor_nama              String?   @db.Text
-  instansi_induk_id      String?   @db.VarChar(50)
+  instansi_induk_id      String?   @db.Text
   instansi_induk_nama    String?   @db.Text
-  instansi_kerja_id      String?   @db.VarChar(50)
+  instansi_kerja_id      String?   @db.Text
   instansi_kerja_nama    String?   @db.Text
-  satuan_kerja_induk_id  String?   @db.VarChar(50)
+  satuan_kerja_induk_id  String?   @db.Text
   satuan_kerja_induk_nama String?  @db.Text
-  satuan_kerja_kerja_id  String?   @db.VarChar(50)
+  satuan_kerja_kerja_id  String?   @db.Text
   satuan_kerja_kerja_nama String?  @db.Text
-  is_valid_nik           String?   @db.VarChar(50)
+  is_valid_nik           String?   @db.Text
   nama_sekolah           String?   @db.Text
-  flag_ikd               String?   @db.VarChar(50)
-  csv_created_at         String?   @db.VarChar(50)
-  csv_updated_at         String?   @db.VarChar(50)
-  eselon_id              String?   @db.VarChar(50)
-  eselon_nama            String?   @db.VarChar(100)
+  flag_ikd               String?   @db.Text
+  csv_created_at         String?   @db.Text
+  csv_updated_at         String?   @db.Text
+  eselon_id              String?   @db.Text
+  eselon_nama            String?   @db.Text
   is_deleted             Boolean   @default(false)
   created_at             DateTime? @default(now()) @db.Timestamp(0)
   updated_at             DateTime? @default(now()) @updatedAt @db.Timestamp(0)
