@@ -2406,6 +2406,26 @@ paths:
         '200':
           $ref: '#/components/responses/SuccessResponse'
 
+  /api/ref-unor/check-active-pegawai/{id}:
+    get:
+      tags:
+        - Ref Unit Organisasi
+      summary: Cek jumlah dan daftar pegawai aktif di suatu unit organisasi
+      description: Mengambil data jumlah dan sampel pegawai aktif yang sedang menggunakan unit organisasi ini atau turunannya.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID unit organisasi
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
   /api/ref-unor:
     get:
       tags:

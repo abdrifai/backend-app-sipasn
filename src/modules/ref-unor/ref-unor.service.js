@@ -264,7 +264,98 @@ export const getUnorByIdGeneral = async (id, level = null) => {
   };
 };
 
-// --- CASCADE SOFT DELETE ---
+// --- CASCADE SOFT DELETE & PEGAWAI CHECK ---
+
+/**
+ * Dapatkan semua ID unor dan seluruh keturunannya (descendants) secara rekursif
+ */
+export const getAllUnorDescendantIds = async (id, tx = prisma) => {
+  const ids = [id];
+  const queue = [id];
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const children = await tx.ref_unitorganisasi.findMany({
+      where: { parent_id: currentId, is_deleted: false },
+      select: { id: true },
+    });
+    for (const child of children) {
+      ids.push(child.id);
+      queue.push(child.id);
+    }
+  }
+  return ids;
+};
+
+/**
+ * Cek jumlah dan daftar pegawai aktif yang menggunakan unit organisasi ini atau turunannya
+ */
+export const getActivePegawaiInUnor = async (unorId) => {
+  const allIds = await getAllUnorDescendantIds(unorId);
+  const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
+
+  const [count, samplePegawai] = await Promise.all([
+    prisma.ta_pegawai.count({
+      where: {
+        ...activePnsWhere,
+        rwt_jabatan: {
+          OR: [
+            { unorInduk_id: { in: allIds } },
+            { unor_id: { in: allIds } },
+            { subUnor_id: { in: allIds } },
+            { subUnorSub_id: { in: allIds } },
+          ],
+        },
+      },
+    }),
+    prisma.ta_pegawai.findMany({
+      where: {
+        ...activePnsWhere,
+        rwt_jabatan: {
+          OR: [
+            { unorInduk_id: { in: allIds } },
+            { unor_id: { in: allIds } },
+            { subUnor_id: { in: allIds } },
+            { subUnorSub_id: { in: allIds } },
+          ],
+        },
+      },
+      take: 5,
+      select: {
+        id: true,
+        nipBaru: true,
+        ta_orang: {
+          select: { nama: true },
+        },
+      },
+    }),
+  ]);
+
+  return {
+    unor_id: unorId,
+    total_unor_terkait: allIds.length,
+    count,
+    pegawai: samplePegawai.map((p) => ({
+      id: p.id,
+      nip: p.nipBaru,
+      nama: p.ta_orang?.nama || "-",
+    })),
+  };
+};
+
+/**
+ * Validasi apakah unit organisasi aman untuk dinonaktifkan / dihapus
+ */
+export const validateCanDeactivateUnor = async (unorId, targetUnorName) => {
+  const { count, pegawai } = await getActivePegawaiInUnor(unorId);
+  if (count > 0) {
+    const sampleNames = pegawai.map((p) => `${p.nama} (${p.nip})`).join(", ");
+    const moreText = count > 5 ? ` dan ${count - 5} pegawai lainnya` : "";
+    throw new AppError(
+      `Tidak dapat menonaktifkan unit organisasi "${targetUnorName || "terpilih"}" karena masih terdapat ${count} pegawai aktif yang terdaftar pada unit ini (Contoh: ${sampleNames}${moreText}). Harap mutasikan atau pindahkan pegawai terlebih dahulu.`,
+      400
+    );
+  }
+};
 
 async function softDeleteTreeCascade(id, tx) {
   const children = await tx.ref_unitorganisasi.findMany({
@@ -396,6 +487,10 @@ export const createUnorInduk = async (data) => {
 
 export const updateUnorInduk = async (id, data) => {
   const existing = await getUnorIndukById(id);
+  if (data.isAktif !== undefined && (data.isAktif === 0 || data.isAktif === "0" || data.isAktif === false)) {
+    await validateCanDeactivateUnor(id, existing.nmUnor);
+  }
+
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
   if (data.nm_jab) {
     targetJabId = await saveOrUpdateJabatan(targetJabId, data.nm_jab, {
@@ -429,7 +524,8 @@ export const updateUnorInduk = async (id, data) => {
 
 
 export const deleteUnorInduk = async (id) => {
-  await getUnorIndukById(id);
+  const existing = await getUnorIndukById(id);
+  await validateCanDeactivateUnor(id, existing.nmUnor);
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });
@@ -514,6 +610,9 @@ export const createUnor = async (data) => {
 
 export const updateUnor = async (id, data) => {
   const existing = await getUnorById(id);
+  if (data.isAktif !== undefined && (data.isAktif === 0 || data.isAktif === "0" || data.isAktif === false)) {
+    await validateCanDeactivateUnor(id, existing.nmUnor);
+  }
   if (data.unorinduk_id) await getUnorIndukById(data.unorinduk_id);
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
   if (data.nm_jab || data.eselon_id !== undefined || data.kategori_jab !== undefined) {
@@ -547,7 +646,8 @@ export const updateUnor = async (id, data) => {
 };
 
 export const deleteUnor = async (id) => {
-  await getUnorById(id);
+  const existing = await getUnorById(id);
+  await validateCanDeactivateUnor(id, existing.nmUnor);
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });
@@ -639,6 +739,9 @@ export const createSubUnor = async (data) => {
 
 export const updateSubUnor = async (id, data) => {
   const existing = await getSubUnorById(id);
+  if (data.isAktif !== undefined && (data.isAktif === 0 || data.isAktif === "0" || data.isAktif === false)) {
+    await validateCanDeactivateUnor(id, existing.nmUnor);
+  }
   if (data.unor_id) await getUnorById(data.unor_id);
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
   if (data.nm_jab || data.eselon_id !== undefined || data.kategori_jab !== undefined) {
@@ -672,7 +775,8 @@ export const updateSubUnor = async (id, data) => {
 };
 
 export const deleteSubUnor = async (id) => {
-  await getSubUnorById(id);
+  const existing = await getSubUnorById(id);
+  await validateCanDeactivateUnor(id, existing.nmUnor);
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });
@@ -759,6 +863,9 @@ export const createSubUnorSub = async (data) => {
 
 export const updateSubUnorSub = async (id, data) => {
   const existing = await getSubUnorSubById(id);
+  if (data.isAktif !== undefined && (data.isAktif === 0 || data.isAktif === "0" || data.isAktif === false)) {
+    await validateCanDeactivateUnor(id, existing.nmUnor);
+  }
   if (data.subUnor_id) await getSubUnorById(data.subUnor_id);
   let targetJabId = data.jab_id !== undefined ? data.jab_id : existing.jab_id;
   if (data.nm_jab || data.eselon_id !== undefined || data.kategori_jab !== undefined) {
@@ -792,7 +899,8 @@ export const updateSubUnorSub = async (id, data) => {
 };
 
 export const deleteSubUnorSub = async (id) => {
-  await getSubUnorSubById(id);
+  const existing = await getSubUnorSubById(id);
+  await validateCanDeactivateUnor(id, existing.nmUnor);
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });

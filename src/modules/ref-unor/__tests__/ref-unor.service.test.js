@@ -10,4 +10,16 @@ describe("Ref Unor Service - Reorder & Ordering", () => {
       statusCode: 400,
     });
   });
+
+  it("harus mengekspor getActivePegawaiInUnor dan validateCanDeactivateUnor", () => {
+    expect(typeof service.getActivePegawaiInUnor).toBe("function");
+    expect(typeof service.validateCanDeactivateUnor).toBe("function");
+  });
+
+  it("harus dapat mengecek pegawai aktif pada unor", async () => {
+    const res = await service.getActivePegawaiInUnor("non-existent-id");
+    expect(res).toHaveProperty("count", 0);
+    expect(res).toHaveProperty("pegawai");
+  });
 });
+

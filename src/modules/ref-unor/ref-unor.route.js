@@ -52,6 +52,9 @@ router.get("/target-parents", controller.getTargetParents);
 router.post("/move", validate(validation.moveUnorSchema), controller.moveUnor);
 router.post("/reorder", validate(validation.reorderUnorSchema), controller.reorderUnor);
 
+// --- ACTIVE PEGAWAI CHECK ---
+router.get("/check-active-pegawai/:id", controller.checkActivePegawai);
+
 // --- UNOR ---
 router.get("/", controller.getAllUnor);
 router.get("/:id", controller.getUnorById);

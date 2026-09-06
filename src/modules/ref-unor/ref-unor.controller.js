@@ -187,3 +187,11 @@ export const reorderUnor = asyncHandler(async (req, res) => {
   sendSuccess(res, 200, "Urutan unit organisasi berhasil diperbarui", data);
 });
 
+// --- ACTIVE PEGAWAI CHECK ---
+
+export const checkActivePegawai = asyncHandler(async (req, res) => {
+  const data = await service.getActivePegawaiInUnor(req.params.id);
+  sendSuccess(res, 200, "Data pegawai aktif pada unit organisasi berhasil diperiksa", data);
+});
+
+
