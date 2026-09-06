@@ -934,14 +934,14 @@ model rwt_pensiun {
 model ta_import_pns {
   id                     String    @id @default(uuid()) @db.Char(36)
   batch_id               String?   @db.Char(36)
-  file_name              String?   @db.VarChar(255)
+  file_name              String?   @db.Text
   pns_id                 String?   @db.VarChar(50)
   nip_baru               String?   @db.VarChar(50)
   nip_lama               String?   @db.VarChar(50)
-  nama                   String?   @db.VarChar(255)
+  nama                   String?   @db.Text
   gelar_depan            String?   @db.VarChar(50)
   gelar_belakang         String?   @db.VarChar(50)
-  tempat_lahir           String?   @db.VarChar(255)
+  tempat_lahir           String?   @db.Text
   tempat_lahir_id        String?   @db.VarChar(50)
   tanggal_lahir          String?   @db.VarChar(50)
   jenis_kelamin          String?   @db.VarChar(20)
@@ -951,8 +951,8 @@ model ta_import_pns {
   jenis_kawin_nama       String?   @db.VarChar(100)
   nik                    String?   @db.VarChar(50)
   nomor_hp               String?   @db.VarChar(50)
-  email                  String?   @db.VarChar(255)
-  email_gov              String?   @db.VarChar(255)
+  email                  String?   @db.Text
+  email_gov              String?   @db.Text
   alamat                 String?   @db.Text
   npwp_nomor             String?   @db.VarChar(50)
   bpjs                   String?   @db.VarChar(50)
@@ -962,10 +962,10 @@ model ta_import_pns {
   kedudukan_pns_nama     String?   @db.VarChar(100)
   status_cpns_pns        String?   @db.VarChar(50)
   kartu_asn_virtual      String?   @db.VarChar(100)
-  nomor_sk_cpns          String?   @db.VarChar(255)
+  nomor_sk_cpns          String?   @db.Text
   tanggal_sk_cpns        String?   @db.VarChar(50)
   tmt_cpns               String?   @db.VarChar(50)
-  nomor_sk_pns           String?   @db.VarChar(255)
+  nomor_sk_pns           String?   @db.Text
   tanggal_sk_pns         String?   @db.VarChar(50)
   tmt_pns                String?   @db.VarChar(50)
   gol_awal_id            String?   @db.VarChar(50)
@@ -978,29 +978,29 @@ model ta_import_pns {
   jenis_jabatan_id       String?   @db.VarChar(50)
   jenis_jabatan_nama     String?   @db.VarChar(100)
   jabatan_id             String?   @db.VarChar(50)
-  jabatan_nama           String?   @db.VarChar(255)
+  jabatan_nama           String?   @db.Text
   tmt_jabatan            String?   @db.VarChar(50)
   tingkat_pendidikan_id  String?   @db.VarChar(50)
   tingkat_pendidikan_nama String?  @db.VarChar(100)
   pendidikan_id          String?   @db.VarChar(50)
-  pendidikan_nama        String?   @db.VarChar(255)
+  pendidikan_nama        String?   @db.Text
   tahun_lulus            String?   @db.VarChar(20)
   kpkn_id                String?   @db.VarChar(50)
   kpkn_nama              String?   @db.VarChar(100)
   lokasi_kerja_id        String?   @db.VarChar(50)
-  lokasi_kerja_nama      String?   @db.VarChar(255)
+  lokasi_kerja_nama      String?   @db.Text
   unor_id                String?   @db.VarChar(50)
-  unor_nama              String?   @db.VarChar(255)
+  unor_nama              String?   @db.Text
   instansi_induk_id      String?   @db.VarChar(50)
-  instansi_induk_nama    String?   @db.VarChar(255)
+  instansi_induk_nama    String?   @db.Text
   instansi_kerja_id      String?   @db.VarChar(50)
-  instansi_kerja_nama    String?   @db.VarChar(255)
+  instansi_kerja_nama    String?   @db.Text
   satuan_kerja_induk_id  String?   @db.VarChar(50)
-  satuan_kerja_induk_nama String?  @db.VarChar(255)
+  satuan_kerja_induk_nama String?  @db.Text
   satuan_kerja_kerja_id  String?   @db.VarChar(50)
-  satuan_kerja_kerja_nama String?  @db.VarChar(255)
+  satuan_kerja_kerja_nama String?  @db.Text
   is_valid_nik           String?   @db.VarChar(50)
-  nama_sekolah           String?   @db.VarChar(255)
+  nama_sekolah           String?   @db.Text
   flag_ikd               String?   @db.VarChar(50)
   csv_created_at         String?   @db.VarChar(50)
   csv_updated_at         String?   @db.VarChar(50)
