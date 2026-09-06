@@ -1324,6 +1324,64 @@ export const getRefJabatan = async () => {
 };
 
 /**
+ * Telusuri seluruh hierarki unit organisasi dari unit terpilih hingga induk tertinggi
+ */
+export const resolveUnorHierarchy = async (selectedUnorId, tx = prisma) => {
+  if (!selectedUnorId) return null;
+
+  const chain = [];
+  let currId = selectedUnorId;
+  const visited = new Set();
+
+  while (currId && !visited.has(currId)) {
+    visited.add(currId);
+    const u = await tx.ref_unitorganisasi.findFirst({
+      where: { id: currId, is_deleted: false },
+      select: {
+        id: true,
+        nmUnor: true,
+        level: true,
+        kode: true,
+        parent_id: true,
+        instansi_id: true,
+        jnsUnor_id: true,
+        jab_id: true,
+      },
+    });
+    if (!u) break;
+    chain.unshift(u);
+    currId = u.parent_id;
+  }
+
+  if (chain.length === 0) return null;
+
+  // Level 1: Induk OPD (paling atas di chain)
+  const induk = chain[0] || null;
+  // Level 2: Unor (Bidang / Bagian / Sekretaris)
+  const unor = chain.length > 1 ? chain[1] : null;
+  // Level 3: Sub Unor (Seksi / Sub Bagian / UPT)
+  const subUnor = chain.length > 2 ? chain[2] : null;
+  // Level 4: Sub Unor Sub (Sub Seksi / Satuan)
+  const subUnorSub = chain.length > 3 ? chain[3] : null;
+
+  const deepest = chain[chain.length - 1];
+
+  return {
+    instansi_id: deepest.instansi_id || "1",
+    jnsUnor_id: deepest.jnsUnor_id || "1",
+    unorInduk_id: induk?.id || null,
+    unorInduk_kode: induk?.kode || null,
+    unor_id: unor?.id || null,
+    unor_kode: unor?.kode || null,
+    subUnor_id: subUnor?.id || null,
+    subUnor_kode: subUnor?.kode || null,
+    subUnorSub_id: subUnorSub?.id || null,
+    subUnorSub_kode: subUnorSub?.kode || null,
+    deepestUnor: deepest,
+  };
+};
+
+/**
  * Tambah Riwayat Jabatan baru untuk pegawai
  */
 export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file = null) => {
@@ -1337,7 +1395,7 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
 
   let instansiId = "1";
   let jnsUnorId = "1";
-  let unorKode = null;
+  let unorHierarchy = null;
   let nmJabId = payload.nmJab_id || null;
   let jnsJabId = payload.jnsJab_id || null;
 
@@ -1350,17 +1408,16 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
   }
 
   if (payload.unorInduk_id) {
-    const unorRecord = await pegawaiRepository.findUnorById(payload.unorInduk_id);
-    if (unorRecord) {
-      instansiId = unorRecord.instansi_id || "1";
-      jnsUnorId = unorRecord.jnsUnor_id || "1";
-      unorKode = unorRecord.kode || null;
+    unorHierarchy = await resolveUnorHierarchy(payload.unorInduk_id);
+    if (unorHierarchy) {
+      instansiId = unorHierarchy.instansi_id;
+      jnsUnorId = unorHierarchy.jnsUnor_id;
 
       if (!nmJabId || nmJabId === 'null' || nmJabId === 'undefined') {
         const resolved = await resolveJabatanForUnor({
-          nmUnor: unorRecord.nmUnor,
-          jabId: unorRecord.jab_id,
-          level: unorRecord.level,
+          nmUnor: unorHierarchy.deepestUnor.nmUnor,
+          jabId: unorHierarchy.deepestUnor.jab_id,
+          level: unorHierarchy.deepestUnor.level,
         });
         if (resolved?.jab_id) {
           nmJabId = resolved.jab_id;
@@ -1378,11 +1435,17 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
     tmtSk: new Date(payload.tmtSk),
     jnsJab_id: jnsJabId,
     nmJab_id: nmJabId,
-    unorInduk_id: payload.unorInduk_id,
+    unorInduk_id: unorHierarchy?.unorInduk_id || payload.unorInduk_id,
+    unorInduk_kode: unorHierarchy?.unorInduk_kode || null,
+    unor_id: unorHierarchy?.unor_id || null,
+    unor_kode: unorHierarchy?.unor_kode || null,
+    subUnor_id: unorHierarchy?.subUnor_id || null,
+    subUnor_kode: unorHierarchy?.subUnor_kode || null,
+    subUnorSub_id: unorHierarchy?.subUnorSub_id || null,
+    subUnorSub_kode: unorHierarchy?.subUnorSub_kode || null,
     instansi_id: instansiId,
     instansi_kode: "7209",
     jnsUnor_id: jnsUnorId,
-    unorInduk_kode: unorKode,
     eselon_id: payload.eselon_id || null,
     jnsMutasi_id: payload.jnsMutasi_id || null,
     pengesahan: payload.pengesahan || "-",
@@ -1419,9 +1482,7 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
     throw new AppError("Riwayat jabatan tidak ditemukan", 404);
   }
 
-  let unorKode = undefined;
-  let instansiId = undefined;
-  let jnsUnorId = undefined;
+  let unorHierarchy = null;
   let nmJabId = payload.nmJab_id !== undefined ? (payload.nmJab_id || null) : undefined;
   let jnsJabId = payload.jnsJab_id !== undefined ? (payload.jnsJab_id || null) : undefined;
 
@@ -1434,21 +1495,15 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
   }
 
   if (payload.unorInduk_id) {
-    const unorRecord = await pegawaiRepository.findUnorById(payload.unorInduk_id);
-    if (unorRecord) {
-      instansiId = unorRecord.instansi_id || "1";
-      jnsUnorId = unorRecord.jnsUnor_id || "1";
-      unorKode = unorRecord.kode || null;
-
-      if (!nmJabId || nmJabId === 'null') {
-        const resolved = await resolveJabatanForUnor({
-          nmUnor: unorRecord.nmUnor,
-          jabId: unorRecord.jab_id,
-          level: unorRecord.level,
-        });
-        if (resolved?.jab_id) {
-          nmJabId = resolved.jab_id;
-        }
+    unorHierarchy = await resolveUnorHierarchy(payload.unorInduk_id);
+    if (unorHierarchy && (!nmJabId || nmJabId === 'null')) {
+      const resolved = await resolveJabatanForUnor({
+        nmUnor: unorHierarchy.deepestUnor.nmUnor,
+        jabId: unorHierarchy.deepestUnor.jab_id,
+        level: unorHierarchy.deepestUnor.level,
+      });
+      if (resolved?.jab_id) {
+        nmJabId = resolved.jab_id;
       }
     }
   }
@@ -1459,10 +1514,20 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
     ...(payload.tmtSk && { tmtSk: new Date(payload.tmtSk) }),
     ...(jnsJabId !== undefined && { jnsJab_id: jnsJabId }),
     ...(nmJabId !== undefined && { nmJab_id: nmJabId }),
-    ...(payload.unorInduk_id && { unorInduk_id: payload.unorInduk_id }),
-    ...(unorKode !== undefined && { unorInduk_kode: unorKode }),
-    ...(instansiId !== undefined && { instansi_id: instansiId }),
-    ...(jnsUnorId !== undefined && { jnsUnor_id: jnsUnorId }),
+    ...(unorHierarchy ? {
+      unorInduk_id: unorHierarchy.unorInduk_id,
+      unorInduk_kode: unorHierarchy.unorInduk_kode,
+      unor_id: unorHierarchy.unor_id,
+      unor_kode: unorHierarchy.unor_kode,
+      subUnor_id: unorHierarchy.subUnor_id,
+      subUnor_kode: unorHierarchy.subUnor_kode,
+      subUnorSub_id: unorHierarchy.subUnorSub_id,
+      subUnorSub_kode: unorHierarchy.subUnorSub_kode,
+      instansi_id: unorHierarchy.instansi_id,
+      jnsUnor_id: unorHierarchy.jnsUnor_id,
+    } : payload.unorInduk_id ? {
+      unorInduk_id: payload.unorInduk_id,
+    } : {}),
     ...(payload.eselon_id !== undefined && { eselon_id: payload.eselon_id || null }),
     ...(payload.jnsMutasi_id !== undefined && { jnsMutasi_id: payload.jnsMutasi_id || null }),
     ...(payload.pengesahan !== undefined && { pengesahan: payload.pengesahan || "-" }),
