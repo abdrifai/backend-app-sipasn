@@ -4,18 +4,53 @@ import prisma from "../../config/database.js";
  * Ambil semua data master jabatan terpadu (ref_jabatan) dengan pagination & filter
  */
 export const findAll = async (params = {}) => {
-  const { search = "", kategori = "", jns_jab_id = "", eselon_id = "" } = params;
+  const { search = "", kategori = "", jns_jab_id = "", eselon_id = "", jenjang_jab_id = "" } = params;
   const page = Math.max(1, parseInt(params.page, 10) || 1);
   const limit = Math.max(1, parseInt(params.limit, 10) || 10);
   const skip = (page - 1) * limit;
+
+  let kategoriFilter = {};
+  if (kategori === "STRUKTURAL") {
+    kategoriFilter = {
+      OR: [
+        { kategori: "STRUKTURAL" },
+        { jenjang_jab_id: { in: [1, 2, 8] } }
+      ]
+    };
+  } else if (kategori === "FUNGSIONAL") {
+    kategoriFilter = {
+      OR: [
+        { kategori: "FUNGSIONAL" },
+        { jenjang_jab_id: { in: [4, 5] } }
+      ]
+    };
+  } else if (kategori === "PELAKSANA") {
+    kategoriFilter = {
+      OR: [
+        { kategori: "PELAKSANA" },
+        { jenjang_jab_id: 3 }
+      ]
+    };
+  } else if (kategori) {
+    kategoriFilter = { kategori };
+  }
+
+  let jenjangFilter = {};
+  if (jenjang_jab_id) {
+    const num = parseInt(jenjang_jab_id, 10);
+    if (!isNaN(num)) {
+      jenjangFilter = { jenjang_jab_id: num };
+    }
+  }
 
   const where = {
     is_deleted: false,
     AND: [
       search ? { nama_jabatan: { contains: search } } : {},
-      kategori ? { kategori } : {},
+      kategoriFilter,
       jns_jab_id ? { jns_jab_id } : {},
       eselon_id ? { eselon_id } : {},
+      jenjangFilter,
     ],
   };
 
@@ -36,7 +71,8 @@ export const findAll = async (params = {}) => {
         kelas_jabatan: true,
         is_aktif: true,
         ref_unitorganisasi: {
-          select: { id: true, nmUnor: true, parent_id: true, level: true }
+          where: { is_deleted: false },
+          select: { id: true, nmUnor: true, parent_id: true, level: true, kode: true }
         },
         ref_jnsjab: {
           select: { id: true, jnsjab: true, kode: true }
@@ -82,15 +118,21 @@ export const findAll = async (params = {}) => {
   // Map nama_jabatan dan info unit terhubung agar mudah dibedakan saat pencarian
   const formattedData = data.map(item => {
     let unitLabel = "";
-    if (item.ref_unitorganisasi) {
-      const parentOpd = getParentOpd(item.ref_unitorganisasi);
-      if (parentOpd && parentOpd !== item.ref_unitorganisasi.nmUnor) {
-        unitLabel = `${item.ref_unitorganisasi.nmUnor} @ ${parentOpd}`;
+    const activeUnorList = Array.isArray(item.ref_unitorganisasi) 
+      ? item.ref_unitorganisasi 
+      : (item.ref_unitorganisasi ? [item.ref_unitorganisasi] : []);
+    
+    const isDirectLinked = activeUnorList.length > 0;
+
+    if (isDirectLinked) {
+      const primaryUnor = activeUnorList[0];
+      const parentOpd = getParentOpd(primaryUnor);
+      if (parentOpd && parentOpd !== primaryUnor.nmUnor) {
+        unitLabel = `${primaryUnor.nmUnor} (${parentOpd})`;
       } else {
-        unitLabel = item.ref_unitorganisasi.nmUnor;
+        unitLabel = primaryUnor.nmUnor;
       }
-    }
-    if (!unitLabel && item.kode) {
+    } else if (item.kode) {
       const prefix = item.kode.substring(0, 9);
       const matched = unorKodeMap.get(prefix);
       if (matched) {
@@ -106,6 +148,7 @@ export const findAll = async (params = {}) => {
       ...item,
       nm_jab: fullLabel,
       nama_jabatan_murni: item.nama_jabatan,
+      is_unor_terhubung: isDirectLinked,
       unit_terhubung: unitLabel || null,
     };
   });
@@ -138,6 +181,10 @@ export const findById = async (id) => {
       bup: true,
       kelas_jabatan: true,
       is_aktif: true,
+      ref_unitorganisasi: {
+        where: { is_deleted: false },
+        select: { id: true, nmUnor: true }
+      },
       ref_jnsjab: {
         select: { id: true, jnsjab: true, kode: true }
       },
@@ -154,6 +201,7 @@ export const findById = async (id) => {
   return {
     ...data,
     nm_jab: data.nama_jabatan,
+    is_unor_terhubung: (data.ref_unitorganisasi || []).length > 0,
   };
 };
 
@@ -161,16 +209,34 @@ export const findById = async (id) => {
  * Tambah data master jabatan baru
  */
 export const create = async (data) => {
+  let derivedKategori = data.kategori;
+  let derivedJnsJabId = data.jns_jab_id;
+
+  if (data.jenjang_jab_id) {
+    const jId = Number(data.jenjang_jab_id);
+    if ([1, 2, 6, 7, 8].includes(jId)) {
+      if (!derivedKategori) derivedKategori = "STRUKTURAL";
+      if (!derivedJnsJabId) derivedJnsJabId = jId === 8 ? "d7ec3033-9729-4d3e-86fb-16f30cfe3127" : "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5";
+    } else if ([4, 5].includes(jId)) {
+      if (!derivedKategori) derivedKategori = "FUNGSIONAL";
+      if (!derivedJnsJabId) derivedJnsJabId = "490b8479-fd4f-4f99-992e-880a5611b890"; // JABATAN FUNGSIONAL (JF)
+    } else if (jId === 3) {
+      if (!derivedKategori) derivedKategori = "PELAKSANA";
+      if (!derivedJnsJabId) derivedJnsJabId = "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5"; // JABATAN ADMINISTRASI (JA)
+    }
+  }
+
   const payload = {
     ...data,
     nama_jabatan: data.nama_jabatan || data.nm_jab,
-    kategori: data.kategori || 'PELAKSANA',
+    kategori: derivedKategori || "PELAKSANA",
+    jns_jab_id: derivedJnsJabId || data.jns_jab_id || null,
   };
   delete payload.nm_jab;
 
   const result = await prisma.ref_jabatan.create({
     data: payload,
-    select: { id: true, nama_jabatan: true, kategori: true },
+    select: { id: true, nama_jabatan: true, kategori: true, jns_jab_id: true, jenjang_jab_id: true },
   });
 
   return {
@@ -183,8 +249,27 @@ export const create = async (data) => {
  * Update data master jabatan
  */
 export const update = async (id, data) => {
+  let derivedKategori = data.kategori;
+  let derivedJnsJabId = data.jns_jab_id;
+
+  if (data.jenjang_jab_id) {
+    const jId = Number(data.jenjang_jab_id);
+    if ([1, 2, 6, 7, 8].includes(jId)) {
+      if (!derivedKategori) derivedKategori = "STRUKTURAL";
+      if (!derivedJnsJabId) derivedJnsJabId = jId === 8 ? "d7ec3033-9729-4d3e-86fb-16f30cfe3127" : "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5";
+    } else if ([4, 5].includes(jId)) {
+      if (!derivedKategori) derivedKategori = "FUNGSIONAL";
+      if (!derivedJnsJabId) derivedJnsJabId = "490b8479-fd4f-4f99-992e-880a5611b890"; // JABATAN FUNGSIONAL (JF)
+    } else if (jId === 3) {
+      if (!derivedKategori) derivedKategori = "PELAKSANA";
+      if (!derivedJnsJabId) derivedJnsJabId = "4a71c9b4-e57d-439d-8ccd-e8bf3ec83de5"; // JABATAN ADMINISTRASI (JA)
+    }
+  }
+
   const payload = {
     ...data,
+    ...(derivedKategori ? { kategori: derivedKategori } : {}),
+    ...(derivedJnsJabId ? { jns_jab_id: derivedJnsJabId } : {}),
   };
   if (payload.nm_jab) {
     payload.nama_jabatan = payload.nm_jab;
@@ -194,7 +279,7 @@ export const update = async (id, data) => {
   const result = await prisma.ref_jabatan.update({
     where: { id },
     data: payload,
-    select: { id: true, nama_jabatan: true, kategori: true },
+    select: { id: true, nama_jabatan: true, kategori: true, jns_jab_id: true, jenjang_jab_id: true },
   });
 
   return {

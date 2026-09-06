@@ -16,18 +16,29 @@ export const getJabById = async (id) => {
 };
 
 export const createJab = async (data) => {
+  if (data.kategori === "STRUKTURAL" || [1, 2, 6, 7, 8].includes(Number(data.jenjang_jab_id))) {
+    throw new AppError("Jabatan struktural tidak dapat ditambahkan dari Master Jabatan. Pengisian dan pengelolaan dilakukan melalui Master Unit Organisasi.", 400);
+  }
   return refJabRepo.create(data);
 };
 
 export const updateJab = async (id, data) => {
   const existing = await refJabRepo.findById(id);
   if (!existing) throw new AppError("Data jabatan tidak ditemukan", 404);
+  if (existing.kategori === "STRUKTURAL" || [1, 2, 6, 7, 8].includes(Number(existing.jenjang_jab_id))) {
+    throw new AppError("Jabatan struktural tidak dapat diubah dari Master Jabatan. Pengisian dan pengelolaan dilakukan melalui Master Unit Organisasi.", 400);
+  }
   return refJabRepo.update(id, data);
 };
 
 export const deleteJab = async (id) => {
   const existing = await refJabRepo.findById(id);
   if (!existing) throw new AppError("Data jabatan tidak ditemukan", 404);
+  
+  const isStruktural = existing.kategori === "STRUKTURAL" || [1, 2, 6, 7, 8].includes(Number(existing.jenjang_jab_id));
+  if (isStruktural && existing.is_unor_terhubung) {
+    throw new AppError("Jabatan struktural yang masih terhubung ke Unit Organisasi tidak dapat dihapus dari Master Jabatan.", 400);
+  }
   return refJabRepo.softDelete(id);
 };
 

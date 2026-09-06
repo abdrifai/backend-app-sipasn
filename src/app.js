@@ -24,6 +24,7 @@ import refInstansiRoute from "./modules/ref-instansi/ref-instansi.route.js";
 import refJabatanRoute from "./modules/ref-jabatan/ref-jabatan.route.js";
 import pensiunRoute from "./modules/pensiun/pensiun.route.js";
 import importPnsRoute from "./modules/import-pns/import-pns.route.js";
+import dataMatchingRoute from "./modules/data-matching/data-matching.route.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -77,6 +78,7 @@ app.use("/api/ref-instansi", refInstansiRoute);
 app.use("/api/ref-jabatan", refJabatanRoute);
 app.use("/api/pensiun", pensiunRoute);
 app.use("/api/import-pns", importPnsRoute);
+app.use("/api/data-matching", dataMatchingRoute);
 
 
 // Swagger API Documentation (Rule 04)

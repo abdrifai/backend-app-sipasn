@@ -2805,6 +2805,119 @@ paths:
         '200':
           $ref: '#/components/responses/SuccessResponse'
 
+  /api/data-matching/lokal-siasn/stats:
+    get:
+      tags:
+        - Data Matching
+      summary: Ambil ringkasan statistik data matching
+      description: Menampilkan total data lokal, data SIASN, sesuai, selisih data, dan breakdown tipe selisih.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Statistik data matching berhasil diambil
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/data-matching/lokal-siasn:
+    get:
+      tags:
+        - Data Matching
+      summary: Ambil daftar data matching Lokal vs SIASN
+      description: Menampilkan komparasi side-by-side data pegawai lokal vs import SIASN dengan opsi filter dan pencarian.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 15
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [all, match, mismatch, only_local, only_siasn]
+            default: all
+        - in: query
+          name: mismatch_type
+          schema:
+            type: string
+            enum: [all, golongan, jabatan, unor, nama, kedudukan]
+            default: all
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: unorInduk_id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Daftar data matching berhasil diambil
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/data-matching/lokal-siasn/detail/{nip}:
+    get:
+      tags:
+        - Data Matching
+      summary: Ambil detail perbandingan lengkap satu pegawai
+      description: Menampilkan perbandingan seluruh atribut data lokal vs SIASN side-by-side.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: nip
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detail data matching berhasil diambil
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/data-matching/lokal-siasn/export:
+    get:
+      tags:
+        - Data Matching
+      summary: Export Excel rekapitulasi data matching
+      description: Mengunduh file Excel (.xlsx) perbandingan data lokal vs SIASN.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: mismatch_type
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File Excel berhasil digenerate
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
 # ==========================================
 # COMPONENTS & SCHEMAS
 # ==========================================
