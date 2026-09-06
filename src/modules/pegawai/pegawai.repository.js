@@ -298,7 +298,7 @@ export const findJabatanPelaksanaById = async (id) => {
   return jab ? { nmJab: jab.nama_jabatan } : null;
 };
 /**
- * Ambil data DUK (Daftar Urut Kepangkatan) dengan filter unit kerja
+ * Ambil data DUK (Daftar Urut Kepangkatan) dengan filter unit kerja secara rekursif
  */
 export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "", jnsJab_id = "", age_range = "", skip = 0, take = 1000 }) => {
   const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
@@ -334,13 +334,28 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
     }
   }
 
+  // Dapatkan seluruh ID unor beserta keturunannya secara rekursif
+  let allUnorIds = [];
+  if (unorInduk_id) {
+    const { getAllUnorDescendantIds } = await import("../ref-unor/ref-unor.service.js");
+    allUnorIds = await getAllUnorDescendantIds(unorInduk_id);
+  }
+
   const where = {
     ...activePnsWhere,
-    ...((unorInduk_id || jnsJab_id) && {
+    ...(allUnorIds.length > 0 && {
       rwt_jabatan: {
-        ...(unorInduk_id && { unorInduk_id }),
+        OR: [
+          { unorInduk_id: { in: allUnorIds } },
+          { unor_id: { in: allUnorIds } },
+          { subUnor_id: { in: allUnorIds } },
+          { subUnorSub_id: { in: allUnorIds } },
+        ],
         ...(jnsJab_id && { jnsJab_id }),
-      }
+      },
+    }),
+    ...(allUnorIds.length === 0 && jnsJab_id && {
+      rwt_jabatan: { jnsJab_id },
     }),
     ...(tktPend_id && {
       rwt_pend: { tktPend_id: parseInt(tktPend_id) },
@@ -380,8 +395,12 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
         select: {
           nmJab_id: true,
           jnsJab_id: true,
+          unorInduk_id: true,
+          unor_id: true,
+          subUnor_id: true,
+          subUnorSub_id: true,
           ref_unitorganisasi: {
-            select: { nmUnor: true, level: true },
+            select: { id: true, nmUnor: true, level: true },
           },
           ref_jabatan: {
             select: {
@@ -410,19 +429,33 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
 };
 
 /**
- * Ambil statistik jabatan untuk satu unit kerja (hanya pegawai aktif)
+ * Ambil statistik jabatan untuk satu unit kerja beserta seluruh sub-unitnya (hanya pegawai aktif)
  */
 export const findDUKStats = async (unorInduk_id, filters = {}) => {
   const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
   const { tktPend_id, gol_id, jnsJab_id } = filters;
 
+  let allUnorIds = [];
+  if (unorInduk_id) {
+    const { getAllUnorDescendantIds } = await import("../ref-unor/ref-unor.service.js");
+    allUnorIds = await getAllUnorDescendantIds(unorInduk_id);
+  }
+
   const where = {
     ...activePnsWhere,
-    ...((unorInduk_id || jnsJab_id) && {
+    ...(allUnorIds.length > 0 && {
       rwt_jabatan: {
-        ...(unorInduk_id && { unorInduk_id }),
+        OR: [
+          { unorInduk_id: { in: allUnorIds } },
+          { unor_id: { in: allUnorIds } },
+          { subUnor_id: { in: allUnorIds } },
+          { subUnorSub_id: { in: allUnorIds } },
+        ],
         ...(jnsJab_id && { jnsJab_id }),
       },
+    }),
+    ...(allUnorIds.length === 0 && jnsJab_id && {
+      rwt_jabatan: { jnsJab_id },
     }),
     ...(tktPend_id && {
       rwt_pend: { tktPend_id: parseInt(tktPend_id) },

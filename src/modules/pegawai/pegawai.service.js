@@ -46,18 +46,38 @@ export const generateDUKExcel = async (unorInduk_id) => {
   headerRow.font = { bold: true };
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
+  // Batch lookup nama unit kerja spesifik
+  const unitIdSet = new Set();
+  for (const p of results) {
+    if (p.rwt_jabatan?.subUnorSub_id) unitIdSet.add(p.rwt_jabatan.subUnorSub_id);
+    if (p.rwt_jabatan?.subUnor_id) unitIdSet.add(p.rwt_jabatan.subUnor_id);
+    if (p.rwt_jabatan?.unor_id) unitIdSet.add(p.rwt_jabatan.unor_id);
+    if (p.rwt_jabatan?.unorInduk_id) unitIdSet.add(p.rwt_jabatan.unorInduk_id);
+  }
+
+  const units = unitIdSet.size > 0
+    ? await prisma.ref_unitorganisasi.findMany({
+        where: { id: { in: Array.from(unitIdSet) } },
+        select: { id: true, nmUnor: true },
+      })
+    : [];
+  const unitMap = new Map(units.map((u) => [u.id, u.nmUnor]));
+
   // Add Data
   const rows = [];
   for (let i = 0; i < results.length; i++) {
     const p = results[i];
     const jabatan = await resolveJabatanNama(p.rwt_jabatan);
+    const specificId = p.rwt_jabatan?.subUnorSub_id || p.rwt_jabatan?.subUnor_id || p.rwt_jabatan?.unor_id || p.rwt_jabatan?.unorInduk_id;
+    const unit_kerja = (specificId && unitMap.get(specificId)) || p.rwt_jabatan?.ref_unitorganisasi?.nmUnor || "-";
+
     rows.push({
       no: i + 1,
       nip: p.nipBaru,
       nama: p.ta_orang?.nama || "-",
       pangkat_gol: p.rwt_gol?.ref_gol ? `${p.rwt_gol.ref_gol.pangkat} (${p.rwt_gol.ref_gol.gol})` : "-",
       jabatan,
-      unit_kerja: p.rwt_jabatan?.ref_unitorganisasi?.nmUnor || "-",
+      unit_kerja,
     });
   }
 
@@ -943,20 +963,37 @@ export const getDUKReport = async (query) => {
     stats.per_jabatan[jabatan] = (stats.per_jabatan[jabatan] || 0) + 1;
   }
   
-  const formattedData = await Promise.all(
-    results.map(async (p) => {
-      const jabatan = getNamaJabatan(p.rwt_jabatan);
+  // Batch lookup nama unit kerja spesifik
+  const unitIdSet = new Set();
+  for (const p of results) {
+    if (p.rwt_jabatan?.subUnorSub_id) unitIdSet.add(p.rwt_jabatan.subUnorSub_id);
+    if (p.rwt_jabatan?.subUnor_id) unitIdSet.add(p.rwt_jabatan.subUnor_id);
+    if (p.rwt_jabatan?.unor_id) unitIdSet.add(p.rwt_jabatan.unor_id);
+    if (p.rwt_jabatan?.unorInduk_id) unitIdSet.add(p.rwt_jabatan.unorInduk_id);
+  }
 
-      return {
-        id: p.id,
-        nip: p.nipBaru,
-        nama: p.ta_orang?.nama || "-",
-        pangkat_gol: p.rwt_gol?.ref_gol ? `${p.rwt_gol.ref_gol.pangkat} (${p.rwt_gol.ref_gol.gol})` : "-",
-        jabatan,
-        unit_kerja: p.rwt_jabatan?.ref_unitorganisasi?.nmUnor || "-",
-      };
-    })
-  );
+  const units = unitIdSet.size > 0
+    ? await prisma.ref_unitorganisasi.findMany({
+        where: { id: { in: Array.from(unitIdSet) } },
+        select: { id: true, nmUnor: true },
+      })
+    : [];
+  const unitMap = new Map(units.map((u) => [u.id, u.nmUnor]));
+
+  const formattedData = results.map((p) => {
+    const jabatan = getNamaJabatan(p.rwt_jabatan);
+    const specificId = p.rwt_jabatan?.subUnorSub_id || p.rwt_jabatan?.subUnor_id || p.rwt_jabatan?.unor_id || p.rwt_jabatan?.unorInduk_id;
+    const unit_kerja = (specificId && unitMap.get(specificId)) || p.rwt_jabatan?.ref_unitorganisasi?.nmUnor || "-";
+
+    return {
+      id: p.id,
+      nip: p.nipBaru,
+      nama: p.ta_orang?.nama || "-",
+      pangkat_gol: p.rwt_gol?.ref_gol ? `${p.rwt_gol.ref_gol.pangkat} (${p.rwt_gol.ref_gol.gol})` : "-",
+      jabatan,
+      unit_kerja,
+    };
+  });
 
   return {
     data: formattedData,
