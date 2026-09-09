@@ -360,7 +360,7 @@ model rwt_diklat {
   user_created     Int?
   user_updated     Int?
 
-  ta_pegawai ta_pegawai?
+  ta_pegawai ta_pegawai[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -383,7 +383,7 @@ model rwt_gol {
   user_created Int?
   user_updated Int?
 
-  ta_pegawai ta_pegawai?
+  ta_pegawai ta_pegawai[]
   ref_gol    ref_gol     @relation(fields: [gol_id], references: [kdGol])
 
   @@index([pegawai_id], map: "pegawai_id")
@@ -490,7 +490,7 @@ model rwt_pend {
   user_created Int?
   user_updated Int?
 
-  ta_pegawai ta_pegawai?
+  ta_pegawai ta_pegawai[]
 
   @@index([pegawai_id], map: "pegawai_id")
 }
@@ -594,9 +594,9 @@ model ta_pegawai {
   created_at      DateTime? @db.Timestamp(0)
   updated_at      DateTime? @updatedAt @db.Timestamp(0)
   rwtJab_id       String?   @db.Char(36)
-  rwtGol_id       String?   @unique @db.Char(36)
-  rwtPend_id      String?   @unique @db.Char(36)
-  rwtDiklat_id    String?   @unique @db.Char(36)
+  rwtGol_id       String?   @db.Char(36)
+  rwtPend_id      String?   @db.Char(36)
+  rwtDiklat_id    String?   @db.Char(36)
   spmt            String?   @db.VarChar(100)
   pns_id_sapk     String?   @db.Char(36)
 
