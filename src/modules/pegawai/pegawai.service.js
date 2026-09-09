@@ -1275,9 +1275,7 @@ export const getRefJabatan = async () => {
     unorTree,
     eselon,
     jenisMutasi,
-    jabStruktural,
-    jabFungsional,
-    jabPelaksana,
+    allJabatan,
   ] = await Promise.all([
     pegawaiRepository.findAllJnsJab(),
     pegawaiRepository.findAllJenjangJab(),
@@ -1285,16 +1283,30 @@ export const getRefJabatan = async () => {
     pegawaiRepository.findUnorTree(false),
     pegawaiRepository.findAllEselon(),
     pegawaiRepository.findAllJnsMutasi(),
-    pegawaiRepository.findAllRefJabatan(),
-    pegawaiRepository.findAllJabatanFungsional(),
-    pegawaiRepository.findAllJabatanPelaksana(),
+    prisma.ref_jabatan.findMany({
+      where: { is_deleted: false },
+      select: {
+        id: true,
+        nama_jabatan: true,
+        kategori: true,
+        jns_jab_id: true,
+        jenjang_jab_id: true,
+        eselon_id: true,
+      },
+      orderBy: { nama_jabatan: 'asc' },
+    }),
   ]);
 
-  const daftarJabatan = [
-    ...jabStruktural.map(j => ({ id: j.id, nama: j.nm_jab, tipe: 'STRUKTURAL', jns_jab_id: j.jns_jab_id, eselon_id: j.eselon_id })),
-    ...jabFungsional.map(j => ({ id: j.id, nama: j.nama_jabatan || j.nmJab, tipe: 'FUNGSIONAL' })),
-    ...jabPelaksana.map(j => ({ id: j.id, nama: j.nama_jabatan || j.nmJab, tipe: 'PELAKSANA' })),
-  ];
+  const daftarJabatan = allJabatan.map((j) => ({
+    id: j.id,
+    nama: j.nama_jabatan,
+    nama_jabatan: j.nama_jabatan,
+    tipe: j.kategori || 'STRUKTURAL',
+    kategori: j.kategori || 'STRUKTURAL',
+    jns_jab_id: j.jns_jab_id,
+    jenjang_jab_id: j.jenjang_jab_id,
+    eselon_id: j.eselon_id,
+  }));
 
   const jenjangEselonRaw = await prisma.ref_jabatan.findMany({
     where: { is_deleted: false, jenjang_jab_id: { not: null }, eselon_id: { not: null } },
@@ -1313,7 +1325,12 @@ export const getRefJabatan = async () => {
 
   return {
     jenis_jabatan: jenisJabatan,
-    jenjang_jabatan: jenjangJabatan.map(j => ({ id: String(j.id), jenjangjab: j.jenjangjab, jnsjab_id: j.jnsjab_id })),
+    jenjang_jabatan: jenjangJabatan.map((j) => ({
+      id: String(j.id),
+      jenjangjab: j.jenjangjab,
+      jnsjab_id: j.jnsjab_id,
+      jnsjab: j.ref_jnsjab?.jnsjab || '',
+    })),
     unor_induk: unorInduk,
     unor_tree: unorTree,
     eselon,

@@ -1017,4 +1017,52 @@ model ta_import_pns {
   @@index([unor_id])
 }
 
+model ta_sk_kolektif {
+  id           String                   @id @default(uuid()) @db.Char(36)
+  no_sk        String                   @db.VarChar(255)
+  tgl_sk       DateTime                 @db.Date
+  tmt_sk       DateTime                 @db.Date
+  jns_mutasi_id String?                 @db.Char(36)
+  pengesahan   String                   @default("-") @db.VarChar(255)
+  keterangan   String?                  @db.Text
+  arsip_path   String?                  @db.VarChar(255)
+  status       String                   @default("DRAFT") @db.VarChar(50)
+  processed_at DateTime?                @db.Timestamp(0)
+  processed_by BigInt?                  @db.UnsignedBigInt
+  created_by   BigInt?                  @db.UnsignedBigInt
+  is_deleted   Boolean                  @default(false)
+  created_at   DateTime?                @default(now()) @db.Timestamp(0)
+  updated_at   DateTime?                @default(now()) @updatedAt @db.Timestamp(0)
+
+  pegawai_list ta_sk_kolektif_pegawai[]
+
+  @@index([no_sk])
+  @@index([status])
+}
+
+model ta_sk_kolektif_pegawai {
+  id             String          @id @default(uuid()) @db.Char(36)
+  sk_kolektif_id String          @db.Char(36)
+  pegawai_id     String          @db.Char(36)
+  nip            String          @db.VarChar(20)
+  nama           String?         @db.VarChar(255)
+  jns_jab_id     String?         @db.Char(36)
+  unor_id        String          @db.Char(36)
+  nm_jab_id      String?         @db.Char(36)
+  eselon_id      String?         @db.Char(36)
+  rwt_jab_id     String?         @db.Char(36)
+  status         String          @default("DRAFT") @db.VarChar(50)
+  keterangan     String?         @db.Text
+  is_deleted     Boolean         @default(false)
+  created_at     DateTime?       @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?       @default(now()) @updatedAt @db.Timestamp(0)
+
+  sk_kolektif    ta_sk_kolektif  @relation(fields: [sk_kolektif_id], references: [id], onDelete: Cascade)
+
+  @@index([sk_kolektif_id])
+  @@index([pegawai_id])
+  @@index([nip])
+}
+
+
 

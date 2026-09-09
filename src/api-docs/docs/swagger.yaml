@@ -2918,10 +2918,228 @@ paths:
                 type: string
                 format: binary
 
+  # ==========================================
+  # PEREMAJAAN KOLEKTIF (RIWAYAT JABATAN)
+  # ==========================================
+  /api/peremajaan-kolektif:
+    get:
+      tags:
+        - Peremajaan Kolektif
+      summary: Daftar SK Kolektif
+      description: Mengambil daftar SK Kolektif dengan pagination, filter status, dan pencarian.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [DRAFT, PROCESSED]
+      responses:
+        '200':
+          description: Berhasil mengambil daftar SK Kolektif
+    post:
+      tags:
+        - Peremajaan Kolektif
+      summary: Tambah SK Kolektif Baru
+      description: Membuat data header SK Kolektif baru dan mengunggah satu file arsip PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - no_sk
+                - tgl_sk
+                - tmt_sk
+              properties:
+                no_sk:
+                  type: string
+                tgl_sk:
+                  type: string
+                  format: date
+                tmt_sk:
+                  type: string
+                  format: date
+                jns_mutasi_id:
+                  type: string
+                pengesahan:
+                  type: string
+                keterangan:
+                  type: string
+                file_sk:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: SK Kolektif berhasil dibuat
+
+  /api/peremajaan-kolektif/{id}:
+    get:
+      tags:
+        - Peremajaan Kolektif
+      summary: Rincian SK Kolektif
+      description: Mengambil detail SK Kolektif beserta rincian pegawai yang terdaftar.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Berhasil mengambil rincian SK Kolektif
+    put:
+      tags:
+        - Peremajaan Kolektif
+      summary: Update SK Kolektif
+      description: Memperbarui data SK Kolektif draft.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SK Kolektif berhasil diperbarui
+    delete:
+      tags:
+        - Peremajaan Kolektif
+      summary: Hapus SK Kolektif
+      description: Menghapus SK Kolektif draft.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SK Kolektif berhasil dihapus
+
+  /api/peremajaan-kolektif/{id}/pegawai:
+    post:
+      tags:
+        - Peremajaan Kolektif
+      summary: Tambah Pegawai ke SK Kolektif
+      description: Menambahkan rincian pegawai, unit organisasi tujuan, jenis jabatan, dan jabatan ke SK Kolektif draft.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pegawai_id
+                - nip
+                - jns_jab_id
+                - unor_id
+              properties:
+                pegawai_id:
+                  type: string
+                nip:
+                  type: string
+                nama:
+                  type: string
+                jns_jab_id:
+                  type: string
+                unor_id:
+                  type: string
+                nm_jab_id:
+                  type: string
+                eselon_id:
+                  type: string
+                keterangan:
+                  type: string
+      responses:
+        '201':
+          description: Pegawai berhasil ditambahkan ke SK Kolektif
+
+  /api/peremajaan-kolektif/{id}/pegawai/{pegawaiItemId}:
+    delete:
+      tags:
+        - Peremajaan Kolektif
+      summary: Hapus Pegawai dari SK Kolektif
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: pegawaiItemId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pegawai berhasil dihapus dari SK Kolektif
+
+  /api/peremajaan-kolektif/{id}/process:
+    post:
+      tags:
+        - Peremajaan Kolektif
+      summary: Eksekusi Proses ke Riwayat Jabatan
+      description: Menyimpan seluruh pegawai dalam SK Kolektif ke riwayat jabatan, menautkan file arsip tunggal ke ta_arsip, dan memperbarui jabatan aktif pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SK Kolektif berhasil diproses ke Riwayat Jabatan
+
 # ==========================================
 # COMPONENTS & SCHEMAS
 # ==========================================
 components:
+
 
   securitySchemes:
     bearerAuth:
