@@ -1031,5 +1031,18 @@ model ta_sk_kolektif_pegawai {
   @@index([nip])
 }
 
+model ta_catatan {
+  id         String    @id @default(uuid()) @db.Char(36)
+  judul      String    @db.VarChar(255)
+  konten     String    @db.LongText
+  kategori   String?   @db.VarChar(100)
+  penulis    String?   @db.VarChar(255)
+  is_pinned  Boolean   @default(false)
+  is_deleted Boolean   @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  updated_at DateTime? @updatedAt @db.Timestamp(0)
 
-
+  @@index([is_pinned])
+  @@index([is_deleted])
+  @@index([created_at])
+}

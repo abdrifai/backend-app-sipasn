@@ -34,3 +34,7 @@ export const authorize = (...roles) => {
     next();
   };
 };
+
+export const authMiddleware = authenticate;
+export default authenticate;
+
