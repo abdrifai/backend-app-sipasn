@@ -607,23 +607,7 @@ model ta_pegawai {
   rwt_diklat  rwt_diklat?  @relation(fields: [rwtDiklat_id], references: [id])
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model ta_sinkron_sapk {
-  id          String    @db.Char(36)
-  pns_id_sapk String    @db.Char(36)
-  nip         String    @db.Char(36)
-  nama        Boolean
-  tgl_lhr     Boolean
-  gol         Boolean
-  jab         Boolean
-  unorinduk   Boolean
-  unor        Boolean
-  status      String?   @db.VarChar(255)
-  created_at  DateTime? @db.Timestamp(0)
-  updated_at  DateTime? @updatedAt @db.Timestamp(0)
 
-  @@ignore
-}
 
 
 
