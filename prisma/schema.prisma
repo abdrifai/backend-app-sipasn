@@ -450,7 +450,7 @@ model rwt_jabatan {
   ref_jabatan         ref_jabatan?         @relation(fields: [nmJab_id], references: [id], map: "rwt_jabatan_ref_jabatan_fkey")
   ref_unitorganisasi  ref_unitorganisasi?  @relation(fields: [unorInduk_id], references: [id], map: "rwt_jabatan_ref_unitorganisasi_fkey")
   ref_jnsjab          ref_jnsjab?          @relation(fields: [jnsJab_id], references: [id])
-  ta_pegawai          ta_pegawai?
+  ta_pegawai          ta_pegawai[]
 
   @@index([pegawai_id], map: "pegawai_id")
   @@index([unorInduk_id], map: "unorInduk_id")
@@ -609,7 +609,7 @@ model ta_pegawai {
   bpjs            String?   @db.VarChar(100)
   created_at      DateTime? @db.Timestamp(0)
   updated_at      DateTime? @updatedAt @db.Timestamp(0)
-  rwtJab_id       String?   @unique @db.Char(36)
+  rwtJab_id       String?   @db.Char(36)
   rwtGol_id       String?   @unique @db.Char(36)
   rwtPend_id      String?   @unique @db.Char(36)
   rwtDiklat_id    String?   @unique @db.Char(36)

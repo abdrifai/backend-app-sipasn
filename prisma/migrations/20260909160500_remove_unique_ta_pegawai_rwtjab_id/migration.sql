@@ -1,0 +1,4 @@
+-- Drop unique constraint if exists on ta_pegawai(rwtJab_id)
+-- Note: MySQL table ta_pegawai uses id as PRIMARY KEY, Prisma ORM schema updated from 1-to-1 (@unique) to 1-to-many.
+-- If unique index exists in any deployment:
+-- DROP INDEX `ta_pegawai_rwtJab_id_key` ON `ta_pegawai`;
