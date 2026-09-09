@@ -45,10 +45,8 @@ export const getSkKolektifById = async (id) => {
   // Lengkapi rincian nama unor dan nama jabatan untuk setiap pegawai
   const unorIds = [...new Set(sk.pegawai_list.map((p) => p.unor_id).filter(Boolean))];
   const jabIds = [...new Set(sk.pegawai_list.map((p) => p.nm_jab_id).filter(Boolean))];
-  const jnsJabIds = [...new Set(sk.pegawai_list.map((p) => p.jns_jab_id).filter(Boolean))];
-  const eselonIds = [...new Set(sk.pegawai_list.map((p) => p.eselon_id).filter(Boolean))];
 
-  const [unors, jabatans, jnsJabs, eselons] = await Promise.all([
+  const [unors, jabatans] = await Promise.all([
     unorIds.length > 0
       ? prisma.ref_unitorganisasi.findMany({
           where: { id: { in: unorIds } },
@@ -58,35 +56,31 @@ export const getSkKolektifById = async (id) => {
     jabIds.length > 0
       ? prisma.ref_jabatan.findMany({
           where: { id: { in: jabIds } },
-          select: { id: true, nama_jabatan: true, kategori: true },
-        })
-      : [],
-    jnsJabIds.length > 0
-      ? prisma.ref_jnsjab.findMany({
-          where: { id: { in: jnsJabIds } },
-          select: { id: true, jnsjab: true },
-        })
-      : [],
-    eselonIds.length > 0
-      ? prisma.ref_eselon.findMany({
-          where: { id: { in: eselonIds } },
-          select: { id: true, eselon: true },
+          select: {
+            id: true,
+            nama_jabatan: true,
+            kategori: true,
+            ref_jnsjab: { select: { id: true, jnsjab: true } },
+            ref_jenjangjab: { select: { id: true, jenjangjab: true } },
+            ref_eselon: { select: { id: true, eselon: true } },
+          },
         })
       : [],
   ]);
 
   const unorMap = new Map(unors.map((u) => [u.id, u]));
   const jabMap = new Map(jabatans.map((j) => [j.id, j]));
-  const jnsJabMap = new Map(jnsJabs.map((j) => [j.id, j]));
-  const eselonMap = new Map(eselons.map((e) => [e.id, e]));
 
-  const enrichedPegawaiList = sk.pegawai_list.map((p) => ({
-    ...p,
-    nama_unor: unorMap.get(p.unor_id)?.nmUnor || "-",
-    nama_jabatan: jabMap.get(p.nm_jab_id)?.nama_jabatan || "-",
-    nama_jns_jab: jnsJabMap.get(p.jns_jab_id)?.jnsjab || "-",
-    nama_eselon: eselonMap.get(p.eselon_id)?.eselon || "-",
-  }));
+  const enrichedPegawaiList = sk.pegawai_list.map((p) => {
+    const jab = jabMap.get(p.nm_jab_id);
+    return {
+      ...p,
+      nama_unor: unorMap.get(p.unor_id)?.nmUnor || "-",
+      nama_jabatan: jab?.nama_jabatan || "-",
+      nama_jns_jab: jab?.ref_jenjangjab?.jenjangjab || jab?.ref_jnsjab?.jnsjab || jab?.kategori || "-",
+      nama_eselon: jab?.ref_eselon?.eselon || "-",
+    };
+  });
 
   return {
     ...sk,
@@ -297,20 +291,13 @@ export const processSkKolektif = async (skKolektifId, userId = null) => {
           sk: sk.no_sk,
           tglSk: sk.tgl_sk,
           tmtSk: sk.tmt_sk,
-          jnsJab_id: jnsJabId,
           nmJab_id: nmJabId,
           unorInduk_id: unorHierarchy?.unorInduk_id || item.unor_id,
-          unorInduk_kode: unorHierarchy?.unorInduk_kode || null,
           unor_id: unorHierarchy?.unor_id || null,
-          unor_kode: unorHierarchy?.unor_kode || null,
           subUnor_id: unorHierarchy?.subUnor_id || null,
-          subUnor_kode: unorHierarchy?.subUnor_kode || null,
           subUnorSub_id: unorHierarchy?.subUnorSub_id || null,
-          subUnorSub_kode: unorHierarchy?.subUnorSub_kode || null,
           instansi_id: instansiId,
-          instansi_kode: "7209",
           jnsUnor_id: jnsUnorId,
-          eselon_id: item.eselon_id || null,
           jnsMutasi_id: sk.jns_mutasi_id || null,
           pengesahan: sk.pengesahan || "-",
           user_created: userId ? parseInt(userId, 10) : null,

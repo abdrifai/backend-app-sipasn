@@ -78,13 +78,11 @@ export const findAllLocalPegawai = async () => {
         select: {
           id: true,
           tmtSk: true,
-          jnsJab_id: true,
           nmJab_id: true,
           unorInduk_id: true,
           unor_id: true,
           subUnor_id: true,
           subUnorSub_id: true,
-          eselon_id: true,
           ref_jabatan: {
             select: {
               id: true,
@@ -226,13 +224,11 @@ export const findLocalPegawaiByNip = async (nip) => {
           sk: true,
           tglSk: true,
           tmtSk: true,
-          jnsJab_id: true,
           nmJab_id: true,
           unorInduk_id: true,
           unor_id: true,
           subUnor_id: true,
           subUnorSub_id: true,
-          eselon_id: true,
           pengesahan: true,
           ref_jabatan: {
             select: {

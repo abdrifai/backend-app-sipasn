@@ -411,49 +411,33 @@ model rwt_hukdis {
 }
 
 model rwt_jabatan {
-  id                  String    @id @db.Char(36)
-  pegawai_id          String    @db.Char(36)
-  nipBaru             String    @db.VarChar(19)
-  sk                  String?   @db.VarChar(255)
-  tglSk               DateTime  @db.Date
-  tmtSk               DateTime  @db.Date
-  jnsMutasi_id        String?   @db.Char(36)
-  jnsMutasi_kode      String?   @db.VarChar(255)
-  instansi_id         String    @db.Char(36)
-  instansi_kode       String?   @db.VarChar(255)
-  jnsUnor_id          String    @db.Char(36)
-  jnsUnor_kode        String?   @db.VarChar(255)
-  unorInduk_id        String    @db.Char(36)
-  unorInduk_kode      String?   @db.VarChar(255)
-  unor_id             String?   @db.Char(36)
-  unor_kode           String?   @db.VarChar(255)
-  subUnor_id          String?   @db.Char(36)
-  subUnor_kode        String?   @db.VarChar(255)
-  subUnorSub_id       String?   @db.Char(255)
-  subUnorSub_kode     String?   @db.VarChar(255)
-  jnsJab_id           String?   @db.Char(36)
-  jnsJab_kode         String?   @db.VarChar(255)
-  rumpunJab_id        String?   @db.Char(36)
-  rumpunJab_kode      String?   @db.VarChar(255)
-  nmJab_id            String?   @db.Char(36)
-  nmJab_kode          String?   @db.VarChar(255)
-  eselon_id           String?   @db.Char(36)
-  eselon_kode         String?   @db.VarChar(255)
-  jnsKepegawaian_id   String?   @db.Char(36)
-  jnsKepegawaian_kode String?   @db.VarChar(255)
-  pengesahan          String    @db.VarChar(255)
-  created_at          DateTime? @db.Timestamp(0)
-  updated_at          DateTime? @updatedAt @db.Timestamp(0)
-  user_created        Int?
-  user_updated        Int?
+  id             String    @id @db.Char(36)
+  pegawai_id     String    @db.Char(36)
+  nipBaru        String    @db.VarChar(19)
+  sk             String?   @db.VarChar(255)
+  tglSk          DateTime  @db.Date
+  tmtSk          DateTime  @db.Date
+  jnsMutasi_id   String?   @db.Char(36)
+  instansi_id    String    @db.Char(36)
+  jnsUnor_id     String    @db.Char(36)
+  unorInduk_id   String    @db.Char(36)
+  unor_id        String?   @db.Char(36)
+  subUnor_id     String?   @db.Char(36)
+  subUnorSub_id  String?   @db.Char(255)
+  nmJab_id       String?   @db.Char(36)
+  pengesahan     String    @db.VarChar(255)
+  created_at     DateTime? @db.Timestamp(0)
+  updated_at     DateTime? @updatedAt @db.Timestamp(0)
+  user_created   Int?
+  user_updated   Int?
 
-  ref_jabatan         ref_jabatan?         @relation(fields: [nmJab_id], references: [id], map: "rwt_jabatan_ref_jabatan_fkey")
-  ref_unitorganisasi  ref_unitorganisasi?  @relation(fields: [unorInduk_id], references: [id], map: "rwt_jabatan_ref_unitorganisasi_fkey")
-  ref_jnsjab          ref_jnsjab?          @relation(fields: [jnsJab_id], references: [id])
-  ta_pegawai          ta_pegawai[]
+  ref_jabatan        ref_jabatan?        @relation(fields: [nmJab_id], references: [id], map: "rwt_jabatan_ref_jabatan_fkey")
+  ref_unitorganisasi ref_unitorganisasi? @relation(fields: [unorInduk_id], references: [id], map: "rwt_jabatan_ref_unitorganisasi_fkey")
+  ta_pegawai         ta_pegawai[]
 
   @@index([pegawai_id], map: "pegawai_id")
   @@index([unorInduk_id], map: "unorInduk_id")
+  @@index([nmJab_id], map: "nmJab_id")
 }
 
 model rwt_kgb {
@@ -711,7 +695,6 @@ model ref_jnsjab {
   is_deleted     Boolean          @default(false)
   created_at     DateTime?        @db.Timestamp(0)
   updated_at     DateTime?        @db.Timestamp(0)
-  rwt_jabatan    rwt_jabatan[]
   ref_jabatan    ref_jabatan[]
   ref_jenjangjab ref_jenjangjab[]
 }

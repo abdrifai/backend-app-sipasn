@@ -477,13 +477,13 @@ export const getPegawaiDetail = async (id) => {
 
       return {
         id: rj.id,
-        jnsJab_id: rj.jnsJab_id || "",
+        jnsJab_id: rj.ref_jabatan?.jns_jab_id || "",
         nmJab_id: rj.nmJab_id || "",
         unorInduk_id: rj.unorInduk_id || "",
-        eselon_id: rj.eselon_id || "",
+        eselon_id: rj.ref_jabatan?.eselon_id || "",
         jnsMutasi_id: rj.jnsMutasi_id || "",
         nama_jabatan: nmJabatan,
-        jenis_jabatan: rj.ref_jnsjab?.jnsjab || "-",
+        jenis_jabatan: rj.ref_jabatan?.ref_jnsjab?.jnsjab || "-",
         unit_kerja: rj.ref_unitorganisasi?.nmUnor || "-",
         sk: rj.sk || "-",
         tgl_sk: formatDateIndo(rj.tglSk),
@@ -492,7 +492,7 @@ export const getPegawaiDetail = async (id) => {
         tmtSk: rj.tmtSk ? rj.tmtSk.toISOString().split('T')[0] : null,
         tmt_pelantikan: rj.tmtPelantikan ? formatDateIndo(rj.tmtPelantikan) : "-",
         tmtPelantikan: rj.tmtPelantikan ? rj.tmtPelantikan.toISOString().split('T')[0] : null,
-        eselon: rj.eselon_kode || "-",
+        eselon: rj.ref_jabatan?.ref_eselon?.eselon || "-",
         pengesahan: rj.pengesahan || "-",
         dokumen_sk: formatDokumenUrl(arsip?.arsip),
       };
@@ -806,8 +806,12 @@ export const getPegawaiDetail = async (id) => {
 };
 
 /**
- * Get Migration Dashboard Data
+ * Ambil data statistik migrasi jabatan untuk dashboard
  */
+export const getMigrationDashboardData = async () => {
+  return pegawaiRepository.getMigrationStats();
+};
+
 /**
  * Ambil statistik pegawai global untuk dashboard
  */
@@ -1450,20 +1454,13 @@ export const addRiwayatJabatan = async (pegawaiId, payload, userId = null, file 
     sk: payload.sk || null,
     tglSk: new Date(payload.tglSk),
     tmtSk: new Date(payload.tmtSk),
-    jnsJab_id: jnsJabId,
     nmJab_id: nmJabId,
     unorInduk_id: unorHierarchy?.unorInduk_id || payload.unorInduk_id,
-    unorInduk_kode: unorHierarchy?.unorInduk_kode || null,
     unor_id: unorHierarchy?.unor_id || null,
-    unor_kode: unorHierarchy?.unor_kode || null,
     subUnor_id: unorHierarchy?.subUnor_id || null,
-    subUnor_kode: unorHierarchy?.subUnor_kode || null,
     subUnorSub_id: unorHierarchy?.subUnorSub_id || null,
-    subUnorSub_kode: unorHierarchy?.subUnorSub_kode || null,
     instansi_id: instansiId,
-    instansi_kode: "7209",
     jnsUnor_id: jnsUnorId,
-    eselon_id: payload.eselon_id || null,
     jnsMutasi_id: payload.jnsMutasi_id || null,
     pengesahan: payload.pengesahan || "-",
     user_created: userId ? parseInt(userId) : null,
@@ -1529,23 +1526,17 @@ export const editRiwayatJabatan = async (pegawaiId, rwtJabId, payload, userId = 
     ...(payload.sk !== undefined && { sk: payload.sk || null }),
     ...(payload.tglSk && { tglSk: new Date(payload.tglSk) }),
     ...(payload.tmtSk && { tmtSk: new Date(payload.tmtSk) }),
-    ...(jnsJabId !== undefined && { jnsJab_id: jnsJabId }),
     ...(nmJabId !== undefined && { nmJab_id: nmJabId }),
     ...(unorHierarchy ? {
       unorInduk_id: unorHierarchy.unorInduk_id,
-      unorInduk_kode: unorHierarchy.unorInduk_kode,
       unor_id: unorHierarchy.unor_id,
-      unor_kode: unorHierarchy.unor_kode,
       subUnor_id: unorHierarchy.subUnor_id,
-      subUnor_kode: unorHierarchy.subUnor_kode,
       subUnorSub_id: unorHierarchy.subUnorSub_id,
-      subUnorSub_kode: unorHierarchy.subUnorSub_kode,
       instansi_id: unorHierarchy.instansi_id,
       jnsUnor_id: unorHierarchy.jnsUnor_id,
     } : payload.unorInduk_id ? {
       unorInduk_id: payload.unorInduk_id,
     } : {}),
-    ...(payload.eselon_id !== undefined && { eselon_id: payload.eselon_id || null }),
     ...(payload.jnsMutasi_id !== undefined && { jnsMutasi_id: payload.jnsMutasi_id || null }),
     ...(payload.pengesahan !== undefined && { pengesahan: payload.pengesahan || "-" }),
     ...(userId && { user_updated: parseInt(userId) }),

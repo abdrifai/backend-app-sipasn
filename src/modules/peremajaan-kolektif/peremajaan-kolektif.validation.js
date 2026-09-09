@@ -33,13 +33,14 @@ export const addPegawaiKolektifSchema = Joi.object({
     "any.required": "NIP pegawai wajib diisi",
   }),
   nama: Joi.string().max(255).allow(null, "").optional(),
-  jns_jab_id: Joi.string().max(36).required().messages({
-    "any.required": "Jenis jabatan wajib dipilih",
-  }),
   unor_id: Joi.string().max(36).required().messages({
     "any.required": "Unit Organisasi (OPD) wajib dipilih",
   }),
-  nm_jab_id: Joi.string().max(36).allow(null, "").optional(),
+  nm_jab_id: Joi.string().max(36).required().messages({
+    "any.required": "Nama jabatan wajib dipilih",
+    "string.empty": "Nama jabatan wajib dipilih",
+  }),
+  jns_jab_id: Joi.string().max(36).allow(null, "").optional(),
   eselon_id: Joi.string().max(36).allow(null, "").optional(),
   keterangan: Joi.string().allow(null, "").optional(),
 });

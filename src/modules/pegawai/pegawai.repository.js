@@ -43,8 +43,16 @@ export const findAll = async ({ page = 1, limit = 10, search = "", sortBy = "id"
         rwt_jabatan: {
           include: {
             ref_unitorganisasi: { select: { nmUnor: true, level: true } },
-            ref_jnsjab: { select: { id: true, jnsjab: true } },
-            ref_jabatan: { select: { nama_jabatan: true, kategori: true, eselon_id: true } },
+            ref_jabatan: {
+              select: {
+                id: true,
+                nama_jabatan: true,
+                kategori: true,
+                jns_jab_id: true,
+                eselon_id: true,
+                ref_jnsjab: { select: { id: true, jnsjab: true } },
+              },
+            },
           },
         },
         rwt_pend: {
@@ -82,18 +90,24 @@ export const getMigrationStats = async () => {
   // Hitung total pegawai pns aktif
   const totalPegawai = await prisma.ta_pegawai.count({ where: activePnsWhere });
 
-  // Ambil rwt_jabatan terbaru untuk setiap pegawai
-  const stats = await prisma.rwt_jabatan.groupBy({
-    by: ['jnsJab_id'],
-    _count: { _all: true },
-    where: {
-      ta_pegawai: activePnsWhere
-    }
-  });
+  // Ambil statistik per jenis jabatan dari ref_jabatan via rwt_jabatan aktif
+  const stats = await prisma.$queryRaw`
+    SELECT 
+      rj.jns_jab_id as jnsJab_id,
+      COUNT(p.id) as count
+    FROM ta_pegawai p
+    JOIN rwt_jabatan r ON p.rwtJab_id = r.id
+    LEFT JOIN ref_jabatan rj ON r.nmJab_id = rj.id
+    WHERE p.kedudukanPns_id IN (1, 7, 8, 10)
+    GROUP BY rj.jns_jab_id
+  `;
 
   return {
     total: totalPegawai,
-    byType: stats
+    byType: stats.map((s) => ({
+      jnsJab_id: s.jnsJab_id,
+      _count: { _all: Number(s.count) },
+    })),
   };
 };
 
@@ -112,9 +126,14 @@ export const findById = async (id) => {
       },
       rwt_jabatan: {
         include: {
-          ref_jabatan: true,
+          ref_jabatan: {
+            include: {
+              ref_jnsjab: true,
+              ref_eselon: true,
+              ref_jenjangjab: true,
+            },
+          },
           ref_unitorganisasi: true,
-          ref_jnsjab: true,
         },
       },
       rwt_pend: true,
@@ -148,9 +167,14 @@ export const findRiwayatByPegawaiId = async (pegawaiId, nipBaru) => {
       where: { pegawai_id: pegawaiId },
       orderBy: { tmtSk: "desc" },
       include: {
-        ref_jabatan: true,
+        ref_jabatan: {
+          include: {
+            ref_jnsjab: true,
+            ref_eselon: true,
+            ref_jenjangjab: true,
+          },
+        },
         ref_unitorganisasi: true,
-        ref_jnsjab: true,
       },
     }),
 
@@ -351,11 +375,11 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
           { subUnor_id: { in: allUnorIds } },
           { subUnorSub_id: { in: allUnorIds } },
         ],
-        ...(jnsJab_id && { jnsJab_id }),
+        ...(jnsJab_id && { ref_jabatan: { jns_jab_id: jnsJab_id } }),
       },
     }),
     ...(allUnorIds.length === 0 && jnsJab_id && {
-      rwt_jabatan: { jnsJab_id },
+      rwt_jabatan: { ref_jabatan: { jns_jab_id: jnsJab_id } },
     }),
     ...(tktPend_id && {
       rwt_pend: { tktPend_id: parseInt(tktPend_id) },
@@ -394,7 +418,6 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
       rwt_jabatan: {
         select: {
           nmJab_id: true,
-          jnsJab_id: true,
           unorInduk_id: true,
           unor_id: true,
           subUnor_id: true,
@@ -406,6 +429,7 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
             select: {
               nama_jabatan: true,
               kategori: true,
+              jns_jab_id: true,
               ref_eselon: {
                 select: { eselon_kode: true },
               },
@@ -451,11 +475,11 @@ export const findDUKStats = async (unorInduk_id, filters = {}) => {
           { subUnor_id: { in: allUnorIds } },
           { subUnorSub_id: { in: allUnorIds } },
         ],
-        ...(jnsJab_id && { jnsJab_id }),
+        ...(jnsJab_id && { ref_jabatan: { jns_jab_id: jnsJab_id } }),
       },
     }),
     ...(allUnorIds.length === 0 && jnsJab_id && {
-      rwt_jabatan: { jnsJab_id },
+      rwt_jabatan: { ref_jabatan: { jns_jab_id: jnsJab_id } },
     }),
     ...(tktPend_id && {
       rwt_pend: { tktPend_id: parseInt(tktPend_id) },
@@ -471,9 +495,8 @@ export const findDUKStats = async (unorInduk_id, filters = {}) => {
       rwt_jabatan: {
         select: {
           nmJab_id: true,
-          jnsJab_id: true,
           ref_jabatan: {
-            select: { nama_jabatan: true, kategori: true },
+            select: { nama_jabatan: true, kategori: true, jns_jab_id: true },
           },
         },
       },
@@ -546,7 +569,6 @@ export const findEstimasiPensiun = async ({
       rwt_jabatan: {
         select: {
           nmJab_id: true,
-          jnsJab_id: true,
           unorInduk_id: true,
           ref_unitorganisasi: {
             select: { id: true, nmUnor: true, level: true },
@@ -828,17 +850,22 @@ export const getGlobalStatistics = async () => {
     }),
 
     // 4. Jenis Jabatan
-    prisma.rwt_jabatan.groupBy({
-      by: ['jnsJab_id'],
-      _count: { _all: true },
-      where: { ta_pegawai: activePnsWhere }
-    }),
+    prisma.$queryRaw`
+      SELECT 
+        rj.jns_jab_id as jnsJab_id,
+        COUNT(p.id) as _count
+      FROM ta_pegawai p
+      JOIN rwt_jabatan r ON p.rwtJab_id = r.id
+      LEFT JOIN ref_jabatan rj ON r.nmJab_id = rj.id
+      WHERE p.kedudukanPns_id IN (1, 7, 8, 10)
+      GROUP BY rj.jns_jab_id
+    `.then(res => res.map(r => ({ jnsJab_id: r.jnsJab_id, _count: { _all: Number(r._count) } }))),
 
     // 5. Unit Kerja Induk
     prisma.rwt_jabatan.groupBy({
       by: ['unorInduk_id'],
       _count: { _all: true },
-      where: { ta_pegawai: activePnsWhere },
+      where: { ta_pegawai: { some: activePnsWhere } },
       orderBy: { _count: { unorInduk_id: 'desc' } }
     }),
 
@@ -1600,10 +1627,11 @@ export const createRiwayatJabatan = async (data) => {
       sk: true,
       tglSk: true,
       tmtSk: true,
-      jnsJab_id: true,
       nmJab_id: true,
       unorInduk_id: true,
-      eselon_id: true,
+      unor_id: true,
+      subUnor_id: true,
+      subUnorSub_id: true,
       jnsMutasi_id: true,
       pengesahan: true,
     },
@@ -1623,12 +1651,21 @@ export const findRiwayatJabatanById = async (id) => {
       sk: true,
       tglSk: true,
       tmtSk: true,
-      jnsJab_id: true,
       nmJab_id: true,
       unorInduk_id: true,
-      eselon_id: true,
+      unor_id: true,
+      subUnor_id: true,
+      subUnorSub_id: true,
       jnsMutasi_id: true,
       pengesahan: true,
+      ref_jabatan: {
+        select: {
+          id: true,
+          nama_jabatan: true,
+          jns_jab_id: true,
+          eselon_id: true,
+        },
+      },
     },
   });
 };
@@ -1647,10 +1684,11 @@ export const updateRiwayatJabatan = async (id, data) => {
       sk: true,
       tglSk: true,
       tmtSk: true,
-      jnsJab_id: true,
       nmJab_id: true,
       unorInduk_id: true,
-      eselon_id: true,
+      unor_id: true,
+      subUnor_id: true,
+      subUnorSub_id: true,
       jnsMutasi_id: true,
       pengesahan: true,
     },

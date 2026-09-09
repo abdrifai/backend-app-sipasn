@@ -65,7 +65,6 @@ export const findEstimasiPensiun = async ({
       rwt_jabatan: {
         select: {
           nmJab_id: true,
-          jnsJab_id: true,
           unorInduk_id: true,
           ref_unitorganisasi: {
             select: { id: true, nmUnor: true, level: true },
@@ -223,7 +222,7 @@ export const findEstimasiPensiun = async ({
       status_badge: statusBadge,
       jabatan: jab?.nama_jabatan || 'Staf',
       kategori: itemKategori,
-      jns_jab_id: jab?.jns_jab_id || p.rwt_jabatan?.jnsJab_id || null,
+      jns_jab_id: jab?.jns_jab_id || null,
       eselon: jab?.ref_eselon?.eselon || '-',
       jenjang: jab?.ref_jenjangjab?.jenjangjab || '-',
       pangkat_gol: p.rwt_gol?.ref_gol ? `${p.rwt_gol.ref_gol.pangkat} (${p.rwt_gol.ref_gol.gol})` : '-',

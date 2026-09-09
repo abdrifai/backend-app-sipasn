@@ -84,6 +84,7 @@ jest.unstable_mockModule("../../../config/database.js", () => ({
     ref_unitorganisasi: { findMany: jest.fn().mockResolvedValue([]) },
     ref_jabatan: { findMany: jest.fn().mockResolvedValue([]) },
     ref_jnsjab: { findMany: jest.fn().mockResolvedValue([]) },
+    ref_jenjangjab: { findMany: jest.fn().mockResolvedValue([]) },
     ref_eselon: { findMany: jest.fn().mockResolvedValue([]) },
     ta_pegawai: { findFirst: jest.fn().mockResolvedValue({ ta_orang: { nama: "Test" } }) },
     $transaction: jest.fn().mockImplementation(async (callback) => {
