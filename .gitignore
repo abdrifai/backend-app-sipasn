@@ -18,3 +18,7 @@ storage/*
 # System & OS
 .DS_Store
 Thumbs.db
+
+# Backup & Temporary Dumps
+backup_*.json
+*.dump

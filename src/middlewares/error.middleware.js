@@ -49,7 +49,7 @@ const errorMiddleware = (err, req, res, next) => {
       success: false,
       statusCode: err.statusCode,
       message: err.message,
-      errors: null,
+      errors: err.errors || null,
     });
   }
 

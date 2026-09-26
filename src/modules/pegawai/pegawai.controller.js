@@ -18,6 +18,49 @@ export const getPegawai = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Handle request daftar pegawai non-aktif
+ */
+export const getPegawaiNonAktif = asyncHandler(async (req, res) => {
+  const result = await pegawaiService.getPegawaiNonAktif(req.query);
+
+  return res.status(200).json({
+    success: true,
+    statusCode: 200,
+    message: "Data pegawai non-aktif berhasil diambil",
+    data: result.data,
+    meta: result.meta,
+    summary: result.summary,
+    kedudukanOptions: result.kedudukanOptions,
+  });
+});
+
+/**
+ * Handle export excel pegawai non-aktif
+ */
+export const exportPegawaiNonAktifExcel = asyncHandler(async (req, res) => {
+  const buffer = await pegawaiService.exportPegawaiNonAktifExcel(req.query);
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="data-pegawai-nonaktif-${Date.now()}.xlsx"`
+  );
+
+  return res.send(buffer);
+});
+
+/**
+ * Handle request opsi kedudukan non-aktif
+ */
+export const getRefKedudukanNonAktif = asyncHandler(async (req, res) => {
+  const options = await pegawaiService.getRefKedudukanNonAktif();
+  sendSuccess(res, 200, "Opsi referensi kedudukan non-aktif berhasil diambil", options);
+});
+
+/**
  * Handle request detail pegawai
  */
 export const getPegawaiById = asyncHandler(async (req, res) => {

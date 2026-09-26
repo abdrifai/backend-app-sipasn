@@ -287,8 +287,9 @@ export const getAllPegawai = async (query) => {
   const page = parseInt(query.page) || 1;
   const limit = parseInt(query.limit) || 10;
   const search = query.search || "";
+  const status = query.status || "aktif";
 
-  const result = await pegawaiRepository.findAll({ page, limit, search });
+  const result = await pegawaiRepository.findAll({ page, limit, search, status });
 
   // Format data untuk frontend secara paralel
   const formattedData = await Promise.all(
@@ -299,13 +300,17 @@ export const getAllPegawai = async (query) => {
         const lastRwtJab = await prisma.rwt_jabatan.findFirst({
           where: { pegawai_id: p.id },
           include: {
-            ref_jabatan: { select: { nama_jabatan: true } },
-            ref_jnsjab: { select: { jnsjab: true } },
+            ref_jabatan: {
+              select: {
+                nama_jabatan: true,
+                ref_jnsjab: { select: { jnsjab: true } },
+              },
+            },
           },
           orderBy: { created_at: "desc" },
         });
         if (lastRwtJab) {
-          jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jnsjab?.jnsjab || "-";
+          jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jabatan?.ref_jnsjab?.jnsjab || "-";
         }
       }
 
@@ -335,6 +340,253 @@ export const getAllPegawai = async (query) => {
     data: formattedData,
     meta: result.meta,
   };
+};
+
+/**
+ * Ambil daftar pegawai non-aktif dengan pagination, filter, dan metrik ringkasan
+ */
+export const getPegawaiNonAktif = async (query = {}) => {
+  const page = parseInt(query.page, 10) || 1;
+  const limit = parseInt(query.limit, 10) || 10;
+  const search = query.search ? query.search.trim() : "";
+  const kedudukanPns_id = query.kedudukanPns_id;
+  const gol_id = query.gol_id;
+  const unor_id = query.unor_id;
+
+  const [kedudukanOptions, result] = await Promise.all([
+    pegawaiRepository.findRefKedudukanNonAktif(),
+    pegawaiRepository.findNonAktif({
+      page,
+      limit,
+      search,
+      kedudukanPns_id,
+      gol_id,
+      unor_id,
+    }),
+  ]);
+
+  const kedudukanMap = new Map(
+    kedudukanOptions.map((k) => [Number(k.id), k.kedudukanpns])
+  );
+
+  // Batch lookup nama unit kerja spesifik jika ada subUnor
+  const unitIdSet = new Set();
+  for (const p of result.data) {
+    if (p.rwt_jabatan?.subUnorSub_id) unitIdSet.add(p.rwt_jabatan.subUnorSub_id);
+    if (p.rwt_jabatan?.subUnor_id) unitIdSet.add(p.rwt_jabatan.subUnor_id);
+    if (p.rwt_jabatan?.unor_id) unitIdSet.add(p.rwt_jabatan.unor_id);
+    if (p.rwt_jabatan?.unorInduk_id) unitIdSet.add(p.rwt_jabatan.unorInduk_id);
+  }
+
+  const units = unitIdSet.size > 0
+    ? await prisma.ref_unitorganisasi.findMany({
+        where: { id: { in: Array.from(unitIdSet) } },
+        select: { id: true, nmUnor: true },
+      })
+    : [];
+  const unitMap = new Map(units.map((u) => [u.id, u.nmUnor]));
+
+  const formattedData = await Promise.all(
+    result.data.map(async (p) => {
+      const rwtJab = p.rwt_jabatan;
+      let jabatan = rwtJab?.ref_jabatan?.nama_jabatan || rwtJab?.ref_jnsjab?.jnsjab || "-";
+      if (jabatan === "-") {
+        const lastRwtJab = await prisma.rwt_jabatan.findFirst({
+          where: { pegawai_id: p.id },
+          include: {
+            ref_jabatan: {
+              select: {
+                nama_jabatan: true,
+                ref_jnsjab: { select: { jnsjab: true } },
+              },
+            },
+          },
+          orderBy: { created_at: "desc" },
+        });
+        if (lastRwtJab) {
+          jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jabatan?.ref_jnsjab?.jnsjab || "-";
+        }
+      }
+
+      const specificId = rwtJab?.subUnorSub_id || rwtJab?.subUnor_id || rwtJab?.unor_id || rwtJab?.unorInduk_id;
+      const unit_kerja = (specificId && unitMap.get(specificId)) || rwtJab?.ref_unitorganisasi?.nmUnor || "-";
+
+      const gd = p.rwt_pend?.gd;
+      const gb = p.rwt_pend?.gb;
+      const namaFormatted = formatNamaGelar(p.ta_orang?.nama, gd, gb);
+      const namaKedudukan = kedudukanMap.get(Number(p.kedudukanPns_id)) || "PNS NON AKTIF";
+
+      return {
+        id: p.id,
+        nip: p.nipBaru,
+        nama: namaFormatted,
+        nama_asli: p.ta_orang?.nama || "Tidak Diketahui",
+        nama_formatted: namaFormatted,
+        gelar_depan: gd || null,
+        gelar_belakang: gb || null,
+        nik: p.ta_orang?.nik || "-",
+        foto: p.ta_orang?.foto || null,
+        kedudukanPns_id: p.kedudukanPns_id,
+        status_kedudukan: namaKedudukan,
+        golongan: p.rwt_gol?.ref_gol?.gol || "-",
+        pangkat: p.rwt_gol?.ref_gol?.pangkat || "-",
+        jabatan,
+        unit_kerja,
+      };
+    })
+  );
+
+  // Group summary counts for KPI metrics
+  const summary = {
+    total: 0,
+    pensiun_bup: 0,
+    pindah_keluar: 0,
+    pensiun_janda_duda_dini: 0,
+    hukuman_pemberhentian: 0,
+    lainnya: 0,
+  };
+
+  (result.statsGroup || []).forEach((sg) => {
+    const kId = Number(sg.kedudukanPns_id);
+    const count = sg._count._all;
+    summary.total += count;
+
+    if (kId === 2) {
+      summary.pensiun_bup += count;
+    } else if (kId === 6) {
+      summary.pindah_keluar += count;
+    } else if (kId === 3 || kId === 4) {
+      summary.pensiun_janda_duda_dini += count;
+    } else if (kId === 5 || kId === 9 || kId === 11) {
+      summary.hukuman_pemberhentian += count;
+    } else {
+      summary.lainnya += count;
+    }
+  });
+
+  return {
+    data: formattedData,
+    meta: result.meta,
+    summary,
+    kedudukanOptions,
+  };
+};
+
+/**
+ * Export data pegawai non-aktif ke file Excel
+ */
+export const exportPegawaiNonAktifExcel = async (query = {}) => {
+  const search = query.search ? query.search.trim() : "";
+  const kedudukanPns_id = query.kedudukanPns_id;
+  const gol_id = query.gol_id;
+  const unor_id = query.unor_id;
+
+  const [kedudukanOptions, rawData] = await Promise.all([
+    pegawaiRepository.findRefKedudukanNonAktif(),
+    pegawaiRepository.findAllNonAktifForExcel({ search, kedudukanPns_id, gol_id, unor_id }),
+  ]);
+
+  const kedudukanMap = new Map(
+    kedudukanOptions.map((k) => [Number(k.id), k.kedudukanpns])
+  );
+
+  const unitIdSet = new Set();
+  for (const p of rawData) {
+    if (p.rwt_jabatan?.subUnorSub_id) unitIdSet.add(p.rwt_jabatan.subUnorSub_id);
+    if (p.rwt_jabatan?.subUnor_id) unitIdSet.add(p.rwt_jabatan.subUnor_id);
+    if (p.rwt_jabatan?.unor_id) unitIdSet.add(p.rwt_jabatan.unor_id);
+    if (p.rwt_jabatan?.unorInduk_id) unitIdSet.add(p.rwt_jabatan.unorInduk_id);
+  }
+
+  const units = unitIdSet.size > 0
+    ? await prisma.ref_unitorganisasi.findMany({
+        where: { id: { in: Array.from(unitIdSet) } },
+        select: { id: true, nmUnor: true },
+      })
+    : [];
+  const unitMap = new Map(units.map((u) => [u.id, u.nmUnor]));
+
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Pegawai Non-Aktif");
+
+  // Title
+  worksheet.mergeCells("A1:G1");
+  worksheet.getCell("A1").value = "DAFTAR PEGAWAI NON-AKTIF PEMERINTAH KABUPATEN TOJO UNA-UNA";
+  worksheet.getCell("A1").font = { size: 14, bold: true };
+  worksheet.getCell("A1").alignment = { horizontal: "center" };
+
+  // Headers
+  worksheet.getRow(3).values = [
+    "NO",
+    "NIP",
+    "NAMA LENGKAP",
+    "STATUS KEDUDUKAN",
+    "PANGKAT / GOL",
+    "JABATAN TERAKHIR",
+    "UNIT KERJA TERAKHIR",
+  ];
+  worksheet.columns = [
+    { key: "no", width: 6 },
+    { key: "nip", width: 22 },
+    { key: "nama", width: 35 },
+    { key: "status_kedudukan", width: 35 },
+    { key: "pangkat_gol", width: 25 },
+    { key: "jabatan", width: 45 },
+    { key: "unit_kerja", width: 50 },
+  ];
+
+  const headerRow = worksheet.getRow(3);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF4F46E5" }, // Indigo 600
+  };
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+
+  const rows = [];
+  for (let i = 0; i < rawData.length; i++) {
+    const p = rawData[i];
+    const rwtJab = p.rwt_jabatan;
+    const jabatan = rwtJab?.ref_jabatan?.nama_jabatan || rwtJab?.ref_jnsjab?.jnsjab || "-";
+    const specificId = rwtJab?.subUnorSub_id || rwtJab?.subUnor_id || rwtJab?.unor_id || rwtJab?.unorInduk_id;
+    const unit_kerja = (specificId && unitMap.get(specificId)) || rwtJab?.ref_unitorganisasi?.nmUnor || "-";
+    const gd = p.rwt_pend?.gd;
+    const gb = p.rwt_pend?.gb;
+    const namaFormatted = formatNamaGelar(p.ta_orang?.nama, gd, gb);
+    const namaKedudukan = kedudukanMap.get(Number(p.kedudukanPns_id)) || "PNS NON AKTIF";
+
+    rows.push({
+      no: i + 1,
+      nip: p.nipBaru,
+      nama: namaFormatted,
+      status_kedudukan: namaKedudukan,
+      pangkat_gol: p.rwt_gol?.ref_gol ? `${p.rwt_gol.ref_gol.pangkat} (${p.rwt_gol.ref_gol.gol})` : "-",
+      jabatan,
+      unit_kerja,
+    });
+  }
+
+  worksheet.addRows(rows);
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber >= 3) {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+    }
+  });
+
+  return workbook.xlsx.writeBuffer();
+};
+
+export const getRefKedudukanNonAktif = async () => {
+  return pegawaiRepository.findRefKedudukanNonAktif();
 };
 
 export const formatNamaGelar = (nama, gd, gb) => {
@@ -396,13 +648,17 @@ export const getPegawaiDetail = async (id) => {
     const lastRwtJab = await prisma.rwt_jabatan.findFirst({
       where: { pegawai_id: p.id },
       include: {
-        ref_jabatan: { select: { nama_jabatan: true } },
-        ref_jnsjab: { select: { jnsjab: true } },
+        ref_jabatan: {
+          select: {
+            nama_jabatan: true,
+            ref_jnsjab: { select: { jnsjab: true } },
+          },
+        },
       },
       orderBy: { created_at: "desc" },
     });
     if (lastRwtJab) {
-      jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jnsjab?.jnsjab || "-";
+      jabatan = lastRwtJab.ref_jabatan?.nama_jabatan || lastRwtJab.ref_jabatan?.ref_jnsjab?.jnsjab || "-";
     }
   }
 
@@ -816,13 +1072,14 @@ export const getMigrationDashboardData = async () => {
  * Ambil statistik pegawai global untuk dashboard
  */
 export const getPegawaiStatistics = async () => {
-  const [stats, jkls, gols, units, jnsJabs, tktPends] = await Promise.all([
+  const [stats, jkls, gols, units, jnsJabs, tktPends, jenjangJabs] = await Promise.all([
     pegawaiRepository.getGlobalStatistics(),
     pegawaiRepository.findAllJkl(),
     pegawaiRepository.findAllGol(),
     pegawaiRepository.findAllUnorInduk(),
     pegawaiRepository.findAllJnsJab(),
     pegawaiRepository.findAllTktPend(),
+    pegawaiRepository.findAllJenjangJab(),
   ]);
 
   // 1. Gender mapping
@@ -850,12 +1107,37 @@ export const getPegawaiStatistics = async () => {
 
   // 4. Jabatan mapping
   const jabStats = stats.byJabatan.map(sj => ({
-    id: sj.jnsJab_id,
+    id: sj.jnsJab_id !== null ? sj.jnsJab_id : "null",
     label: jnsJabs.find(j => j.id === sj.jnsJab_id)?.jnsjab || "Lainnya",
     count: sj._count._all
   }));
 
-  // 5. Education mapping
+  // 5. Jenjang Jabatan mapping
+  const jenjangOrder = {
+    '6': 1, // JPT Utama
+    '7': 2, // JPT Madya
+    '8': 3, // JPT Pratama
+    '1': 4, // Administrator
+    '2': 5, // Pengawas
+    '3': 6, // Pelaksana
+    '4': 7, // JF Keahlian
+    '5': 8, // JF Ketrampilan
+  };
+
+  const jenjangStats = (stats.byJenjangJabatan || []).map(sj => {
+    const ref = jenjangJabs.find(j => String(j.id) === String(sj.jenjangJab_id));
+    return {
+      id: sj.jenjangJab_id !== null ? String(sj.jenjangJab_id) : "null",
+      label: ref ? ref.jenjangjab.trim() : "Lainnya / Belum Ditentukan",
+      count: sj._count._all
+    };
+  }).sort((a, b) => {
+    const orderA = a.id && jenjangOrder[a.id] ? jenjangOrder[a.id] : 99;
+    const orderB = b.id && jenjangOrder[b.id] ? jenjangOrder[b.id] : 99;
+    return orderA - orderB;
+  });
+
+  // 6. Education mapping
   const eduCounts = {};
   stats.byEducation.forEach(p => {
     const tktIdStr = p.rwt_pend?.tktPend_id?.toString();
@@ -870,7 +1152,7 @@ export const getPegawaiStatistics = async () => {
     count: eduCounts[tktIdStr]
   })).sort((a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0));
 
-  // 6. Age mapping
+  // 7. Age mapping
   const now = new Date();
   const currentYear = now.getFullYear();
   const ageRanges = {
@@ -903,6 +1185,7 @@ export const getPegawaiStatistics = async () => {
     byGolongan: golStats,
     byUnit: unitStats,
     byJabatan: jabStats,
+    byJenjangJabatan: jenjangStats,
     byEducation: eduStats,
     byAge: ageStats
   };
@@ -924,6 +1207,7 @@ export const getDUKReport = async (query) => {
   const tktPend_id = query.tktPend_id || "";
   const gol_id = query.gol_id || "";
   const jnsJab_id = query.jnsJab_id || "";
+  const jenjang_jab_id = query.jenjang_jab_id || "";
   const age_range = query.age_range || "";
   const page = parseInt(query.page) || 1;
   const limit = parseInt(query.limit) || 10; // Default 10 per page
@@ -934,6 +1218,7 @@ export const getDUKReport = async (query) => {
     tktPend_id,
     gol_id,
     jnsJab_id,
+    jenjang_jab_id,
     age_range,
     skip,
     take: limit
@@ -952,6 +1237,7 @@ export const getDUKReport = async (query) => {
     tktPend_id,
     gol_id,
     jnsJab_id,
+    jenjang_jab_id,
   });
   const jabatanCache = new Map();
   
@@ -1283,8 +1569,8 @@ export const getRefJabatan = async () => {
   ] = await Promise.all([
     pegawaiRepository.findAllJnsJab(),
     pegawaiRepository.findAllJenjangJab(),
-    pegawaiRepository.findAllUnorInduk(false),
-    pegawaiRepository.findUnorTree(false),
+    pegawaiRepository.findAllUnorInduk(true),
+    pegawaiRepository.findUnorTree(true),
     pegawaiRepository.findAllEselon(),
     pegawaiRepository.findAllJnsMutasi(),
     prisma.ref_jabatan.findMany({

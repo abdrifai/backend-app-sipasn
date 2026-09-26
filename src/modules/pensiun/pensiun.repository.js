@@ -18,6 +18,16 @@ export const findEstimasiPensiun = async ({
   // PNS Aktif: 1 (Aktif Pemda), 7 (Aktif Diperkerjakan), 8 (Aktif Non Job), 10 (Persetujuan Pindah Wilayah Kerja)
   const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
 
+  // Dapatkan seluruh ID unor beserta keturunannya secara rekursif jika filter unor diberikan
+  let allUnorIds = [];
+  if (unorInduk_id) {
+    const { getAllUnorDescendantIds } = await import("../ref-unor/ref-unor.service.js");
+    allUnorIds = await getAllUnorDescendantIds(unorInduk_id);
+    if (!allUnorIds || allUnorIds.length === 0) {
+      allUnorIds = [unorInduk_id];
+    }
+  }
+
   const where = {
     ...activePnsWhere,
     ta_orang: {
@@ -31,9 +41,14 @@ export const findEstimasiPensiun = async ({
         } : {}),
       },
     },
-    ...(unorInduk_id && {
+    ...(allUnorIds.length > 0 && {
       rwt_jabatan: {
-        unorInduk_id,
+        OR: [
+          { unorInduk_id: { in: allUnorIds } },
+          { unor_id: { in: allUnorIds } },
+          { subUnor_id: { in: allUnorIds } },
+          { subUnorSub_id: { in: allUnorIds } },
+        ],
       },
     }),
   };

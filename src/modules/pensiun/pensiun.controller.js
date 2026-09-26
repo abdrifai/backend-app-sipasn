@@ -56,3 +56,35 @@ export const exportProyeksiPensiun = asyncHandler(async (req, res) => {
 
   res.send(buffer);
 });
+
+/**
+ * Handle request laporan rekapitulasi tahunan pegawai non-aktif dan perubahan data induk
+ */
+export const getRekapTahunan = asyncHandler(async (req, res) => {
+  const result = await pensiunService.getRekapTahunanReport();
+  return sendSuccess(
+    res,
+    200,
+    "Laporan rekapitulasi tahunan berhasil diambil",
+    result.data,
+    { summary: result.summary }
+  );
+});
+
+/**
+ * Handle request export rekapitulasi tahunan ke Excel
+ */
+export const exportRekapTahunan = asyncHandler(async (req, res) => {
+  const buffer = await pensiunService.generateRekapTahunanExcel();
+
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename=Rekap_Tahunan_NonAktif_${Date.now()}.xlsx`
+  );
+
+  res.send(buffer);
+});

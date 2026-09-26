@@ -10,7 +10,7 @@ const normalize = (str) => (str || "").trim().toLowerCase();
  * Menghilangkan node dummy yang namanya sama persis dengan parent-nya sehingga hierarki murni parent -> child nyata
  */
 export const getUnorTree = async (params = {}) => {
-  const { kode, level, parentId, exclude_id } = params;
+  const { kode, level, parentId, exclude_id, includeInactive, onlyInactive, isAktif } = params;
 
   // Level 1: Instansi (Root)
   if (!level) {
@@ -47,6 +47,31 @@ export const getUnorTree = async (params = {}) => {
     }
   }
 
+  // Filter status aktif:
+  // - onlyInactive: hanya unit isAktif: 0
+  // - includeInactive: semua unit (aktif & non-aktif)
+  // - default: hanya unit isAktif: 1
+  const isOnlyInactive =
+    onlyInactive === "true" ||
+    onlyInactive === true ||
+    onlyInactive === "1" ||
+    onlyInactive === 1 ||
+    isAktif === "0" ||
+    isAktif === 0;
+
+  const isIncludeInactive =
+    includeInactive === "true" ||
+    includeInactive === true ||
+    includeInactive === "1" ||
+    includeInactive === 1;
+
+  let aktifFilter = { isAktif: 1 };
+  if (isOnlyInactive) {
+    aktifFilter = { isAktif: 0 };
+  } else if (isIncludeInactive) {
+    aktifFilter = {};
+  }
+
   // Level 2+: Children under Instansi (Level 'induk' / Top OPD)
   let rawData = [];
   const treeNodeSelect = {
@@ -60,6 +85,9 @@ export const getUnorTree = async (params = {}) => {
     jab_id: true,
     is_pimpinan: true,
     isAktif: true,
+    peraturan: true,
+    tglPeraturan: true,
+    tahun: true,
     ref_jabatan: {
       select: {
         id: true,
@@ -73,7 +101,7 @@ export const getUnorTree = async (params = {}) => {
     children: {
       where: {
         is_deleted: false,
-        isAktif: 1,
+        ...aktifFilter,
         ...(exclude_id ? { id: { not: exclude_id } } : {}),
       },
       select: { id: true, nmUnor: true },
@@ -83,12 +111,21 @@ export const getUnorTree = async (params = {}) => {
   const excludeFilter = exclude_id ? { id: { not: exclude_id } } : {};
 
   if (level === "instansi") {
+    const parentCondition = isOnlyInactive
+      ? {
+          OR: [
+            { parent_id: null },
+            { parent: { isAktif: 1 } },
+          ],
+        }
+      : { parent_id: null };
+
     rawData = await prisma.ref_unitorganisasi.findMany({
       where: {
         instansi_id: parentId,
-        parent_id: null,
         is_deleted: false,
-        isAktif: 1,
+        ...aktifFilter,
+        ...parentCondition,
         ...excludeFilter,
       },
       select: treeNodeSelect,
@@ -100,7 +137,7 @@ export const getUnorTree = async (params = {}) => {
       where: {
         parent_id: parentId,
         is_deleted: false,
-        isAktif: 1,
+        ...aktifFilter,
         ...excludeFilter,
       },
       select: treeNodeSelect,
@@ -129,6 +166,9 @@ export const getUnorTree = async (params = {}) => {
       no_urut: item.no_urut ?? 1,
       is_pimpinan: item.is_pimpinan,
       isAktif: item.isAktif,
+      peraturan: item.peraturan || null,
+      tglPeraturan: item.tglPeraturan || null,
+      tahun: item.tahun || null,
       jab_id: item.jab_id,
       nm_jab: item.ref_jabatan?.nama_jabatan || null,
       kategori_jab: item.ref_jabatan?.kategori || null,

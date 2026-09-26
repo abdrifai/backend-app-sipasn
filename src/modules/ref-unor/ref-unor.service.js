@@ -319,12 +319,19 @@ export const getActivePegawaiInUnor = async (unorId) => {
           ],
         },
       },
-      take: 5,
+      take: 20,
       select: {
         id: true,
         nipBaru: true,
         ta_orang: {
           select: { nama: true },
+        },
+        rwt_jabatan: {
+          select: {
+            ref_jabatan: {
+              select: { nama_jabatan: true },
+            },
+          },
         },
       },
     }),
@@ -338,6 +345,7 @@ export const getActivePegawaiInUnor = async (unorId) => {
       id: p.id,
       nip: p.nipBaru,
       nama: p.ta_orang?.nama || "-",
+      jabatan: p.rwt_jabatan?.ref_jabatan?.nama_jabatan || "-",
     })),
   };
 };
@@ -345,14 +353,23 @@ export const getActivePegawaiInUnor = async (unorId) => {
 /**
  * Validasi apakah unit organisasi aman untuk dinonaktifkan / dihapus
  */
-export const validateCanDeactivateUnor = async (unorId, targetUnorName) => {
+export const validateCanDeactivateUnor = async (unorId, targetUnorName, action = "menghapus") => {
   const { count, pegawai } = await getActivePegawaiInUnor(unorId);
   if (count > 0) {
-    const sampleNames = pegawai.map((p) => `${p.nama} (${p.nip})`).join(", ");
+    const sampleList = pegawai
+      .slice(0, 5)
+      .map((p) => `${p.nama} (NIP. ${p.nip}${p.jabatan && p.jabatan !== '-' ? ` - ${p.jabatan}` : ''})`)
+      .join(", ");
     const moreText = count > 5 ? ` dan ${count - 5} pegawai lainnya` : "";
     throw new AppError(
-      `Tidak dapat menonaktifkan unit organisasi "${targetUnorName || "terpilih"}" karena masih terdapat ${count} pegawai aktif yang terdaftar pada unit ini (Contoh: ${sampleNames}${moreText}). Harap mutasikan atau pindahkan pegawai terlebih dahulu.`,
-      400
+      `Tidak dapat ${action} unit organisasi "${targetUnorName || "terpilih"}" karena masih terdapat ${count} pegawai aktif yang terdaftar: ${sampleList}${moreText}. Harap mutasikan atau pindahkan pegawai terlebih dahulu.`,
+      400,
+      {
+        count,
+        pegawai,
+        unor_id: unorId,
+        unor_nama: targetUnorName,
+      }
     );
   }
 };
@@ -374,16 +391,37 @@ async function softDeleteTreeCascade(id, tx) {
 // --- UNOR INDUK ---
 
 export const getAllUnorInduk = async (params = {}) => {
-  const { page = 1, limit = 10, search = "", instansi_id, instansi_kode = "7209", isAktif } = params;
+  const { page = 1, limit = 10, search = "", instansi_id, instansi_kode = "7209", isAktif, includeInactive, onlyInactive } = params;
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.max(1, parseInt(limit, 10) || 10);
   const skip = (pageNum - 1) * limitNum;
+
+  const isOnlyInactive =
+    onlyInactive === "true" ||
+    onlyInactive === true ||
+    onlyInactive === "1" ||
+    onlyInactive === 1;
+
+  const isIncludeInactive =
+    includeInactive === "true" ||
+    includeInactive === true ||
+    includeInactive === "1" ||
+    includeInactive === 1;
+
+  let aktifWhere = { isAktif: 1 };
+  if (isAktif !== undefined && isAktif !== "") {
+    aktifWhere = { isAktif: parseInt(isAktif, 10) };
+  } else if (isOnlyInactive) {
+    aktifWhere = { isAktif: 0 };
+  } else if (isIncludeInactive) {
+    aktifWhere = {};
+  }
 
   const where = {
     is_deleted: false,
     level: "induk",
     nmUnor: { not: "" },
-    ...(isAktif !== undefined && isAktif !== "" ? { isAktif: parseInt(isAktif, 10) } : { isAktif: 1 }),
+    ...aktifWhere,
     ...(instansi_id ? { instansi_id } : {}),
     ...(instansi_kode ? {
       OR: [
@@ -409,6 +447,9 @@ export const getAllUnorInduk = async (params = {}) => {
         no_urut: true,
         isAktif: true,
         instansi_id: true,
+        peraturan: true,
+        tglPeraturan: true,
+        tahun: true,
       },
       orderBy: [{ no_urut: "asc" }, { nmUnor: "asc" }],
     }),
@@ -525,7 +566,7 @@ export const updateUnorInduk = async (id, data) => {
 
 export const deleteUnorInduk = async (id) => {
   const existing = await getUnorIndukById(id);
-  await validateCanDeactivateUnor(id, existing.nmUnor);
+  await validateCanDeactivateUnor(id, existing.nmUnor, "menghapus");
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });
@@ -647,7 +688,7 @@ export const updateUnor = async (id, data) => {
 
 export const deleteUnor = async (id) => {
   const existing = await getUnorById(id);
-  await validateCanDeactivateUnor(id, existing.nmUnor);
+  await validateCanDeactivateUnor(id, existing.nmUnor, "menghapus");
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });
@@ -776,7 +817,7 @@ export const updateSubUnor = async (id, data) => {
 
 export const deleteSubUnor = async (id) => {
   const existing = await getSubUnorById(id);
-  await validateCanDeactivateUnor(id, existing.nmUnor);
+  await validateCanDeactivateUnor(id, existing.nmUnor, "menghapus");
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });
@@ -900,7 +941,7 @@ export const updateSubUnorSub = async (id, data) => {
 
 export const deleteSubUnorSub = async (id) => {
   const existing = await getSubUnorSubById(id);
-  await validateCanDeactivateUnor(id, existing.nmUnor);
+  await validateCanDeactivateUnor(id, existing.nmUnor, "menghapus");
   return prisma.$transaction(async (tx) => {
     return softDeleteTreeCascade(id, tx);
   });

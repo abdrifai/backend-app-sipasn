@@ -4,6 +4,17 @@ export const getPegawaiSchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
   search: Joi.string().allow("", null).optional(),
+  status: Joi.string().valid("aktif", "non-aktif", "semua").optional(),
+}).unknown(true);
+
+export const getPegawaiNonAktifSchema = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).optional(),
+  search: Joi.string().allow("", null).optional(),
+  kedudukanPns_id: Joi.alternatives().try(Joi.number().integer(), Joi.string()).allow("", null).optional(),
+  gol_id: Joi.string().allow("", null).optional(),
+  unor_id: Joi.string().allow("", null).optional(),
+  export: Joi.boolean().optional(),
 }).unknown(true);
 
 export const createRiwayatGolonganSchema = Joi.object({

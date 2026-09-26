@@ -1,4 +1,5 @@
 import * as service from "../ref-unor.service.js";
+import * as treeService from "../ref-unor.tree.service.js";
 
 describe("Ref Unor Service - Reorder & Ordering", () => {
   it("harus mengekspor reorderUnorNodes fungsi", () => {
@@ -20,6 +21,17 @@ describe("Ref Unor Service - Reorder & Ordering", () => {
     const res = await service.getActivePegawaiInUnor("non-existent-id");
     expect(res).toHaveProperty("count", 0);
     expect(res).toHaveProperty("pegawai");
+  });
+
+  it("harus dapat memanggil getAllUnorInduk dengan opsi includeInactive", async () => {
+    const res = await service.getAllUnorInduk({ limit: 5, includeInactive: true });
+    expect(res).toHaveProperty("data");
+    expect(Array.isArray(res.data)).toBe(true);
+  });
+
+  it("harus dapat memanggil getUnorTree dengan opsi includeInactive", async () => {
+    const res = await treeService.getUnorTree({ kode: 7209, includeInactive: true });
+    expect(Array.isArray(res)).toBe(true);
   });
 });
 

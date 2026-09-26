@@ -77,3 +77,58 @@ export const searchUnorOptions = asyncHandler(async (req, res) => {
   const data = await peremajaanService.searchUnorOptions(req.query);
   return sendSuccess(res, 200, "Berhasil mencari unit organisasi", data);
 });
+
+export const getPegawaiByUnor = asyncHandler(async (req, res) => {
+  const data = await peremajaanService.getPegawaiByUnor(req.query);
+  return sendSuccess(res, 200, "Daftar pegawai berhasil diambil", data);
+});
+
+export const addPegawaiBatchToSkKolektif = asyncHandler(async (req, res) => {
+  const result = await peremajaanService.addPegawaiBatchToSkKolektif(req.params.id, req.body);
+  return sendSuccess(
+    res,
+    201,
+    `${result.total_added} pegawai berhasil ditambahkan ke SK Kolektif`,
+    result
+  );
+});
+
+export const getAllMutasiUnor = asyncHandler(async (req, res) => {
+  const result = await peremajaanService.getAllMutasiUnor(req.query);
+  return sendSuccess(
+    res,
+    200,
+    "Berhasil mengambil daftar riwayat mutasi unit organisasi",
+    result.data,
+    result.meta
+  );
+});
+
+export const getMutasiUnorById = asyncHandler(async (req, res) => {
+  const data = await peremajaanService.getMutasiUnorById(req.params.id);
+  return sendSuccess(res, 200, "Berhasil mengambil rincian mutasi unit organisasi", data);
+});
+
+export const createMutasiUnor = asyncHandler(async (req, res) => {
+  const userId = req.user?.id || null;
+  const result = await peremajaanService.createMutasiUnor(req.body, userId);
+  return sendSuccess(
+    res,
+    201,
+    `Berhasil memindahkan ${result.total_pegawai} pegawai ke ${result.nama_tujuan_unor}`,
+    result
+  );
+});
+
+export const restoreMutasiUnor = asyncHandler(async (req, res) => {
+  const userId = req.user?.id || null;
+  const result = await peremajaanService.restoreMutasiUnor(req.params.id, userId);
+  return sendSuccess(
+    res,
+    200,
+    `Berhasil mengembalikan ${result.total_restored} pegawai ke unit organisasi asal`,
+    result
+  );
+});
+
+

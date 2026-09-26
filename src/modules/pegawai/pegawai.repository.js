@@ -4,11 +4,18 @@ import prisma from "../../config/database.js";
 /**
  * Ambil data pegawai dengan pagination, search, dan relations
  */
-export const findAll = async ({ page = 1, limit = 10, search = "", sortBy = "id", sortOrder = "asc" }) => {
+export const findAll = async ({ page = 1, limit = 10, search = "", status = "aktif", sortBy = "id", sortOrder = "asc" }) => {
   const skip = (page - 1) * limit;
 
+  let kedudukanCondition = { in: [1, 7, 8, 10] };
+  if (status === "non-aktif") {
+    kedudukanCondition = { notIn: [1, 7, 8, 10] };
+  } else if (status === "semua") {
+    kedudukanCondition = undefined;
+  }
+
   const where = {
-    kedudukanPns_id: { in: [1, 7, 8, 10] },
+    ...(kedudukanCondition ? { kedudukanPns_id: kedudukanCondition } : {}),
     ...(search && {
       OR: [
         { nipBaru: { contains: search } },
@@ -79,6 +86,243 @@ export const findAll = async ({ page = 1, limit = 10, search = "", sortBy = "id"
       totalPages: Math.ceil(total / limit),
     },
   };
+};
+
+/**
+ * Ambil data pegawai non-aktif dengan pagination, filter kedudukan, golongan, unit kerja, dan statistik ringkasan
+ */
+export const findNonAktif = async ({
+  page = 1,
+  limit = 10,
+  search = "",
+  kedudukanPns_id,
+  gol_id,
+  unor_id,
+  sortBy = "nipBaru",
+  sortOrder = "asc"
+}) => {
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(kedudukanPns_id
+      ? { kedudukanPns_id: parseInt(kedudukanPns_id, 10) }
+      : {
+          OR: [
+            { kedudukanPns_id: { notIn: [1, 7, 8, 10] } },
+            { kedudukanPns_id: null }
+          ]
+        }),
+    ...(gol_id ? { rwt_gol: { gol_id } } : {}),
+    ...(unor_id ? {
+      rwt_jabatan: {
+        OR: [
+          { unorInduk_id: unor_id },
+          { unor_id: unor_id },
+          { subUnor_id: unor_id },
+          { subUnorSub_id: unor_id },
+        ]
+      }
+    } : {}),
+    ...(search && {
+      OR: [
+        { nipBaru: { contains: search } },
+        { ta_orang: { nama: { contains: search } } },
+        { ta_orang: { nik: { contains: search } } },
+      ],
+    }),
+  };
+
+  const [data, total, statsGroup] = await Promise.all([
+    prisma.ta_pegawai.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      select: {
+        id: true,
+        nipBaru: true,
+        kedudukanPns_id: true,
+        ta_orang: {
+          select: {
+            nama: true,
+            nik: true,
+            foto: true,
+            tglLhr: true,
+            jkl_id: true,
+          },
+        },
+        rwt_gol: {
+          select: {
+            gol_id: true,
+            ref_gol: {
+              select: {
+                gol: true,
+                pangkat: true,
+              },
+            },
+          },
+        },
+        rwt_jabatan: {
+          select: {
+            unorInduk_id: true,
+            unor_id: true,
+            subUnor_id: true,
+            subUnorSub_id: true,
+            ref_unitorganisasi: { select: { nmUnor: true, level: true } },
+            ref_jabatan: {
+              select: {
+                id: true,
+                nama_jabatan: true,
+                kategori: true,
+                jns_jab_id: true,
+                eselon_id: true,
+                ref_jnsjab: { select: { id: true, jnsjab: true } },
+              },
+            },
+          },
+        },
+        rwt_pend: {
+          select: {
+            gd: true,
+            gb: true,
+          },
+        },
+      },
+    }),
+    prisma.ta_pegawai.count({ where }),
+    prisma.ta_pegawai.groupBy({
+      by: ['kedudukanPns_id'],
+      _count: { _all: true },
+      where: {
+        OR: [
+          { kedudukanPns_id: { notIn: [1, 7, 8, 10] } },
+          { kedudukanPns_id: null }
+        ]
+      }
+    }),
+  ]);
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+    statsGroup,
+  };
+};
+
+/**
+ * Ambil semua data non-aktif untuk export Excel
+ */
+export const findAllNonAktifForExcel = async ({
+  search = "",
+  kedudukanPns_id,
+  gol_id,
+  unor_id
+}) => {
+  const where = {
+    ...(kedudukanPns_id
+      ? { kedudukanPns_id: parseInt(kedudukanPns_id, 10) }
+      : {
+          OR: [
+            { kedudukanPns_id: { notIn: [1, 7, 8, 10] } },
+            { kedudukanPns_id: null }
+          ]
+        }),
+    ...(gol_id ? { rwt_gol: { gol_id } } : {}),
+    ...(unor_id ? {
+      rwt_jabatan: {
+        OR: [
+          { unorInduk_id: unor_id },
+          { unor_id: unor_id },
+          { subUnor_id: unor_id },
+          { subUnorSub_id: unor_id },
+        ]
+      }
+    } : {}),
+    ...(search && {
+      OR: [
+        { nipBaru: { contains: search } },
+        { ta_orang: { nama: { contains: search } } },
+        { ta_orang: { nik: { contains: search } } },
+      ],
+    }),
+  };
+
+  return prisma.ta_pegawai.findMany({
+    where,
+    orderBy: { nipBaru: "asc" },
+    select: {
+      id: true,
+      nipBaru: true,
+      kedudukanPns_id: true,
+      ta_orang: {
+        select: {
+          nama: true,
+          nik: true,
+          foto: true,
+          tglLhr: true,
+          jkl_id: true,
+        },
+      },
+      rwt_gol: {
+        select: {
+          gol_id: true,
+          ref_gol: {
+            select: {
+              gol: true,
+              pangkat: true,
+            },
+          },
+        },
+      },
+      rwt_jabatan: {
+        select: {
+          unorInduk_id: true,
+          unor_id: true,
+          subUnor_id: true,
+          subUnorSub_id: true,
+          ref_unitorganisasi: { select: { nmUnor: true, level: true } },
+          ref_jabatan: {
+            select: {
+              id: true,
+              nama_jabatan: true,
+              kategori: true,
+              jns_jab_id: true,
+              eselon_id: true,
+              ref_jnsjab: { select: { id: true, jnsjab: true } },
+            },
+          },
+        },
+      },
+      rwt_pend: {
+        select: {
+          gd: true,
+          gb: true,
+        },
+      },
+    },
+  });
+};
+
+/**
+ * Ambil daftar opsi referensi kedudukan non-aktif
+ */
+export const findRefKedudukanNonAktif = async () => {
+  return prisma.ref_kedudukanpns.findMany({
+    where: {
+      is_deleted: false,
+      id: { notIn: [1, 7, 8, 10] },
+    },
+    select: {
+      id: true,
+      kedudukanpns: true,
+    },
+    orderBy: { id: "asc" },
+  });
 };
 
 /**
@@ -324,7 +568,7 @@ export const findJabatanPelaksanaById = async (id) => {
 /**
  * Ambil data DUK (Daftar Urut Kepangkatan) dengan filter unit kerja secara rekursif
  */
-export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "", jnsJab_id = "", age_range = "", skip = 0, take = 1000 }) => {
+export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "", jnsJab_id = "", jenjang_jab_id = "", age_range = "", skip = 0, take = 1000 }) => {
   const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
 
   let ageCondition = {};
@@ -365,9 +609,20 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
     allUnorIds = await getAllUnorDescendantIds(unorInduk_id);
   }
 
-  const where = {
-    ...activePnsWhere,
-    ...(allUnorIds.length > 0 && {
+  const isJenjangNull = jenjang_jab_id === "null" || jenjang_jab_id === "none";
+  const isJnsJabNull = jnsJab_id === "null" || jnsJab_id === "none";
+
+  const refJabatanFilter = {};
+  if (jnsJab_id && !isJnsJabNull) refJabatanFilter.jns_jab_id = jnsJab_id;
+  if (jenjang_jab_id && !isJenjangNull) {
+    refJabatanFilter.jenjang_jab_id = Number(jenjang_jab_id);
+  }
+  const hasRefJabFilter = Object.keys(refJabatanFilter).length > 0;
+
+  const andConditions = [];
+
+  if (allUnorIds.length > 0) {
+    andConditions.push({
       rwt_jabatan: {
         OR: [
           { unorInduk_id: { in: allUnorIds } },
@@ -375,21 +630,61 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
           { subUnor_id: { in: allUnorIds } },
           { subUnorSub_id: { in: allUnorIds } },
         ],
-        ...(jnsJab_id && { ref_jabatan: { jns_jab_id: jnsJab_id } }),
       },
-    }),
-    ...(allUnorIds.length === 0 && jnsJab_id && {
-      rwt_jabatan: { ref_jabatan: { jns_jab_id: jnsJab_id } },
-    }),
-    ...(tktPend_id && {
+    });
+  }
+
+  if (hasRefJabFilter) {
+    andConditions.push({
+      rwt_jabatan: { ref_jabatan: refJabatanFilter },
+    });
+  }
+
+  if (isJenjangNull) {
+    andConditions.push({
+      OR: [
+        { rwt_jabatan: { is: null } },
+        { rwt_jabatan: { nmJab_id: null } },
+        { rwt_jabatan: { nmJab_id: "" } },
+        { rwt_jabatan: { ref_jabatan: { is: null } } },
+        { rwt_jabatan: { ref_jabatan: { jenjang_jab_id: null } } },
+      ],
+    });
+  }
+
+  if (isJnsJabNull) {
+    andConditions.push({
+      OR: [
+        { rwt_jabatan: { is: null } },
+        { rwt_jabatan: { nmJab_id: null } },
+        { rwt_jabatan: { nmJab_id: "" } },
+        { rwt_jabatan: { ref_jabatan: { is: null } } },
+        { rwt_jabatan: { ref_jabatan: { jns_jab_id: null } } },
+      ],
+    });
+  }
+
+  if (tktPend_id) {
+    andConditions.push({
       rwt_pend: { tktPend_id: parseInt(tktPend_id) },
-    }),
-    ...(gol_id && {
+    });
+  }
+
+  if (gol_id) {
+    andConditions.push({
       rwt_gol: { gol_id },
-    }),
-    ...(age_range && {
-      ta_orang: ageCondition
-    })
+    });
+  }
+
+  if (age_range) {
+    andConditions.push({
+      ta_orang: ageCondition,
+    });
+  }
+
+  const where = {
+    ...activePnsWhere,
+    ...(andConditions.length > 0 && { AND: andConditions }),
   };
 
   const [results, total] = await prisma.$transaction([
@@ -457,7 +752,7 @@ export const findDUK = async ({ unorInduk_id = "", tktPend_id = "", gol_id = "",
  */
 export const findDUKStats = async (unorInduk_id, filters = {}) => {
   const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
-  const { tktPend_id, gol_id, jnsJab_id } = filters;
+  const { tktPend_id, gol_id, jnsJab_id, jenjang_jab_id } = filters;
 
   let allUnorIds = [];
   if (unorInduk_id) {
@@ -465,9 +760,20 @@ export const findDUKStats = async (unorInduk_id, filters = {}) => {
     allUnorIds = await getAllUnorDescendantIds(unorInduk_id);
   }
 
-  const where = {
-    ...activePnsWhere,
-    ...(allUnorIds.length > 0 && {
+  const isJenjangNull = jenjang_jab_id === "null" || jenjang_jab_id === "none";
+  const isJnsJabNull = jnsJab_id === "null" || jnsJab_id === "none";
+
+  const refJabatanFilter = {};
+  if (jnsJab_id && !isJnsJabNull) refJabatanFilter.jns_jab_id = jnsJab_id;
+  if (jenjang_jab_id && !isJenjangNull) {
+    refJabatanFilter.jenjang_jab_id = Number(jenjang_jab_id);
+  }
+  const hasRefJabFilter = Object.keys(refJabatanFilter).length > 0;
+
+  const andConditions = [];
+
+  if (allUnorIds.length > 0) {
+    andConditions.push({
       rwt_jabatan: {
         OR: [
           { unorInduk_id: { in: allUnorIds } },
@@ -475,18 +781,55 @@ export const findDUKStats = async (unorInduk_id, filters = {}) => {
           { subUnor_id: { in: allUnorIds } },
           { subUnorSub_id: { in: allUnorIds } },
         ],
-        ...(jnsJab_id && { ref_jabatan: { jns_jab_id: jnsJab_id } }),
       },
-    }),
-    ...(allUnorIds.length === 0 && jnsJab_id && {
-      rwt_jabatan: { ref_jabatan: { jns_jab_id: jnsJab_id } },
-    }),
-    ...(tktPend_id && {
+    });
+  }
+
+  if (hasRefJabFilter) {
+    andConditions.push({
+      rwt_jabatan: { ref_jabatan: refJabatanFilter },
+    });
+  }
+
+  if (isJenjangNull) {
+    andConditions.push({
+      OR: [
+        { rwt_jabatan: { is: null } },
+        { rwt_jabatan: { nmJab_id: null } },
+        { rwt_jabatan: { nmJab_id: "" } },
+        { rwt_jabatan: { ref_jabatan: { is: null } } },
+        { rwt_jabatan: { ref_jabatan: { jenjang_jab_id: null } } },
+      ],
+    });
+  }
+
+  if (isJnsJabNull) {
+    andConditions.push({
+      OR: [
+        { rwt_jabatan: { is: null } },
+        { rwt_jabatan: { nmJab_id: null } },
+        { rwt_jabatan: { nmJab_id: "" } },
+        { rwt_jabatan: { ref_jabatan: { is: null } } },
+        { rwt_jabatan: { ref_jabatan: { jns_jab_id: null } } },
+      ],
+    });
+  }
+
+  if (tktPend_id) {
+    andConditions.push({
       rwt_pend: { tktPend_id: parseInt(tktPend_id) },
-    }),
-    ...(gol_id && {
+    });
+  }
+
+  if (gol_id) {
+    andConditions.push({
       rwt_gol: { gol_id },
-    }),
+    });
+  }
+
+  const where = {
+    ...activePnsWhere,
+    ...(andConditions.length > 0 && { AND: andConditions }),
   };
 
   const pegawais = await prisma.ta_pegawai.findMany({
@@ -522,6 +865,16 @@ export const findEstimasiPensiun = async ({
   // PNS Aktif: 1 (Aktif Pemda), 7 (Aktif Diperkerjakan), 8 (Aktif Non Job), 10 (Persetujuan Pindah Wilayah Kerja)
   const activePnsWhere = { kedudukanPns_id: { in: [1, 7, 8, 10] } };
 
+  // Dapatkan seluruh ID unor beserta keturunannya secara rekursif jika filter unor diberikan
+  let allUnorIds = [];
+  if (unorInduk_id) {
+    const { getAllUnorDescendantIds } = await import("../ref-unor/ref-unor.service.js");
+    allUnorIds = await getAllUnorDescendantIds(unorInduk_id);
+    if (!allUnorIds || allUnorIds.length === 0) {
+      allUnorIds = [unorInduk_id];
+    }
+  }
+
   const where = {
     ...activePnsWhere,
     ta_orang: {
@@ -535,9 +888,14 @@ export const findEstimasiPensiun = async ({
         } : {}),
       },
     },
-    ...(unorInduk_id && {
+    ...(allUnorIds.length > 0 && {
       rwt_jabatan: {
-        unorInduk_id,
+        OR: [
+          { unorInduk_id: { in: allUnorIds } },
+          { unor_id: { in: allUnorIds } },
+          { subUnor_id: { in: allUnorIds } },
+          { subUnorSub_id: { in: allUnorIds } },
+        ],
       },
     }),
   };
@@ -828,6 +1186,7 @@ export const getGlobalStatistics = async () => {
     byGender,
     byGolongan,
     byJabatan,
+    byJenjangJabatan,
     byUnit,
     byEducation,
     birthdays
@@ -846,7 +1205,7 @@ export const getGlobalStatistics = async () => {
     prisma.rwt_gol.groupBy({
       by: ['gol_id'],
       _count: { _all: true },
-      where: { ta_pegawai: activePnsWhere }
+      where: { ta_pegawai: { some: activePnsWhere } }
     }),
 
     // 4. Jenis Jabatan
@@ -861,7 +1220,19 @@ export const getGlobalStatistics = async () => {
       GROUP BY rj.jns_jab_id
     `.then(res => res.map(r => ({ jnsJab_id: r.jnsJab_id, _count: { _all: Number(r._count) } }))),
 
-    // 5. Unit Kerja Induk
+    // 5. Jenjang Jabatan
+    prisma.$queryRaw`
+      SELECT 
+        rj.jenjang_jab_id as jenjangJab_id,
+        COUNT(p.id) as _count
+      FROM ta_pegawai p
+      JOIN rwt_jabatan r ON p.rwtJab_id = r.id
+      LEFT JOIN ref_jabatan rj ON r.nmJab_id = rj.id
+      WHERE p.kedudukanPns_id IN (1, 7, 8, 10)
+      GROUP BY rj.jenjang_jab_id
+    `.then(res => res.map(r => ({ jenjangJab_id: r.jenjangJab_id !== null ? String(r.jenjangJab_id) : null, _count: { _all: Number(r._count) } }))),
+
+    // 6. Unit Kerja Induk
     prisma.rwt_jabatan.groupBy({
       by: ['unorInduk_id'],
       _count: { _all: true },
@@ -869,7 +1240,7 @@ export const getGlobalStatistics = async () => {
       orderBy: { _count: { unorInduk_id: 'desc' } }
     }),
 
-    // 6. Tingkat Pendidikan
+    // 7. Tingkat Pendidikan
     prisma.ta_pegawai.findMany({
       where: activePnsWhere,
       select: {
@@ -879,7 +1250,7 @@ export const getGlobalStatistics = async () => {
       }
     }),
 
-    // 7. Usia (Ambil tglLhr untuk dihitung di service)
+    // 8. Usia (Ambil tglLhr untuk dihitung di service)
     prisma.ta_orang.findMany({
       where: { ta_pegawai: activePnsWhere },
       select: { tglLhr: true }
@@ -891,6 +1262,7 @@ export const getGlobalStatistics = async () => {
     byGender,
     byGolongan,
     byJabatan,
+    byJenjangJabatan,
     byUnit,
     byEducation,
     birthdays
@@ -1067,7 +1439,24 @@ export const findAllUnorInduk = async (onlyActive = true) => {
     ],
   });
 
-  return unors.map((u) => {
+  let filtered = unors;
+  if (onlyActive) {
+    const map = new Map(unors.map((u) => [u.id, u]));
+    const isChainActive = (node) => {
+      let curr = node;
+      const visited = new Set();
+      while (curr) {
+        if (curr.isAktif === 0) return false;
+        if (!curr.parent_id || visited.has(curr.parent_id)) break;
+        visited.add(curr.parent_id);
+        curr = map.get(curr.parent_id);
+      }
+      return true;
+    };
+    filtered = unors.filter(isChainActive);
+  }
+
+  return filtered.map((u) => {
     const cleanNm = u.nmUnor ? u.nmUnor.trim() : '';
     const resolved = resolveJabatan(cleanNm, u.level, u.jab_id);
     const jab = u.ref_jabatan;
@@ -1150,8 +1539,25 @@ export const findUnorTree = async (onlyActive = true) => {
     orderBy: { nmUnor: 'asc' },
   });
 
+  let activeNodes = allNodes;
+  if (onlyActive) {
+    const map = new Map(allNodes.map((u) => [u.id, u]));
+    const isChainActive = (node) => {
+      let curr = node;
+      const visited = new Set();
+      while (curr) {
+        if (curr.isAktif === 0) return false;
+        if (!curr.parent_id || visited.has(curr.parent_id)) break;
+        visited.add(curr.parent_id);
+        curr = map.get(curr.parent_id);
+      }
+      return true;
+    };
+    activeNodes = allNodes.filter(isChainActive);
+  }
+
   const childrenByParent = {};
-  for (const node of allNodes) {
+  for (const node of activeNodes) {
     const pId = node.parent_id || 'root';
     if (!childrenByParent[pId]) childrenByParent[pId] = [];
     childrenByParent[pId].push(node);

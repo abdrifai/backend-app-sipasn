@@ -4,6 +4,7 @@ import { validate } from "../../middlewares/validate.middleware.js";
 import { uploadDokumenSK, uploadDokumenPendidikan, uploadFotoPegawai } from "../../middlewares/upload.middleware.js";
 import {
   getPegawaiSchema,
+  getPegawaiNonAktifSchema,
   createRiwayatGolonganSchema,
   updateRiwayatGolonganSchema,
   createRiwayatKgbSchema,
@@ -38,6 +39,15 @@ router.use(authenticate);
 
 // GET /api/pegawai - Daftar pegawai dengan search & pagination
 router.get("/", validate(getPegawaiSchema), pegawaiController.getPegawai);
+
+// GET /api/pegawai/non-aktif - Daftar pegawai non-aktif dengan pagination, filter, dan metrik
+router.get("/non-aktif", validate(getPegawaiNonAktifSchema), pegawaiController.getPegawaiNonAktif);
+
+// GET /api/pegawai/non-aktif/export/excel - Unduh data pegawai non-aktif ke file Excel
+router.get("/non-aktif/export/excel", pegawaiController.exportPegawaiNonAktifExcel);
+
+// GET /api/pegawai/non-aktif/kedudukan-options - Master opsi kedudukan non-aktif
+router.get("/non-aktif/kedudukan-options", pegawaiController.getRefKedudukanNonAktif);
 
 // POST /api/pegawai - Tambah pegawai baru
 router.post("/", validate(createPegawaiSchema), pegawaiController.createPegawai);

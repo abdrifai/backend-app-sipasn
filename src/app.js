@@ -26,6 +26,7 @@ import pensiunRoute from "./modules/pensiun/pensiun.route.js";
 import importPnsRoute from "./modules/import-pns/import-pns.route.js";
 import dataMatchingRoute from "./modules/data-matching/data-matching.route.js";
 import peremajaanKolektifRoute from "./modules/peremajaan-kolektif/peremajaan-kolektif.route.js";
+import peremajaanDataIndukRoute from "./modules/peremajaan-data-induk/peremajaan-data-induk.route.js";
 import catatanRoute from "./modules/catatan/catatan.route.js";
 
 const app = express();
@@ -79,9 +80,11 @@ app.use("/api/ref-unor", refUnorRoute);
 app.use("/api/ref-instansi", refInstansiRoute);
 app.use("/api/ref-jabatan", refJabatanRoute);
 app.use("/api/pensiun", pensiunRoute);
+app.use("/api/pemberhentian", pensiunRoute);
 app.use("/api/import-pns", importPnsRoute);
 app.use("/api/data-matching", dataMatchingRoute);
 app.use("/api/peremajaan-kolektif", peremajaanKolektifRoute);
+app.use("/api/peremajaan-data-induk", peremajaanDataIndukRoute);
 app.use("/api/catatan", catatanRoute);
 
 

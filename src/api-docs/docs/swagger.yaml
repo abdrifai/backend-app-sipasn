@@ -463,6 +463,91 @@ paths:
         '409':
           description: NIP pegawai sudah ada
 
+  /api/pegawai/non-aktif:
+    get:
+      tags:
+        - Pegawai
+      summary: Daftar pegawai berstatus non-aktif
+      description: Mengambil daftar pegawai ASN dengan status kedudukan non-aktif (pensiun, mutasi keluar, pemberhentian, hukuman disiplin) beserta statistik ringkasan dan pagination.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Pencarian NIP, Nama, atau NIK
+        - in: query
+          name: kedudukanPns_id
+          schema:
+            type: integer
+          description: Filter ID Kedudukan PNS Non-Aktif
+        - in: query
+          name: gol_id
+          schema:
+            type: string
+          description: Filter Golongan
+        - in: query
+          name: unor_id
+          schema:
+            type: string
+          description: Filter ID Unit Kerja
+      responses:
+        '200':
+          description: Data pegawai non-aktif berhasil diambil
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pegawai/non-aktif/export/excel:
+    get:
+      tags:
+        - Pegawai
+      summary: Export data pegawai non-aktif ke file Excel
+      description: Mengunduh berkas spreadsheet .xlsx yang berisi daftar pegawai non-aktif sesuai parameter filter.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: kedudukanPns_id
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Berkas Excel berhasil diunduh
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/pegawai/non-aktif/kedudukan-options:
+    get:
+      tags:
+        - Pegawai
+      summary: Opsi referensi kedudukan PNS non-aktif
+      description: Mengambil daftar opsi referensi kedudukan PNS non-aktif untuk dropdown filter.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Daftar opsi kedudukan non-aktif berhasil diambil
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /api/pegawai/referensi/identitas:
     get:
       tags:
@@ -481,7 +566,7 @@ paths:
       tags:
         - Pegawai
       summary: Statistik global pegawai ASN
-      description: Mengambil ringkasan statistik total ASN, PNS aktif, sebaran golongan, jenis kelamin, dan jabatan.
+      description: Mengambil ringkasan statistik total ASN, PNS aktif, sebaran golongan, jenis kelamin, jabatan, jenjang jabatan, dan pendidikan.
       security:
         - bearerAuth: []
         - cookieAuth: []
@@ -538,6 +623,11 @@ paths:
           name: search
           schema:
             type: string
+        - in: query
+          name: jenjang_jab_id
+          schema:
+            type: string
+          description: Filter ID jenjang jabatan
       responses:
         '200':
           description: Data DUK berhasil diambil
@@ -2919,8 +3009,125 @@ paths:
                 format: binary
 
   # ==========================================
-  # PEREMAJAAN KOLEKTIF (RIWAYAT JABATAN)
+  # PEREMAJAAN KOLEKTIF & MUTASI UNOR
   # ==========================================
+  /api/peremajaan-kolektif/mutasi-unor:
+    get:
+      tags:
+        - Peremajaan Kolektif
+      summary: Daftar Riwayat Mutasi Masal Unit Organisasi
+      description: Mengambil daftar riwayat perpindahan pegawai antar unit organisasi tanpa SK dengan pagination dan filter.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [APPLIED, RESTORED]
+      responses:
+        '200':
+          description: Berhasil mengambil daftar riwayat mutasi unor
+    post:
+      tags:
+        - Peremajaan Kolektif
+      summary: Terapkan Mutasi Masal Unit Organisasi (Tanpa SK)
+      description: Memindahkan sekelompok pegawai dari satu unit organisasi ke unit organisasi baru secara langsung, sekaligus dapat menyesuaikan jabatan struktural pegawai secara serentak.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - asal_unor_id
+                - tujuan_unor_id
+              properties:
+                asal_unor_id:
+                  type: string
+                tujuan_unor_id:
+                  type: string
+                target_nm_jab_id:
+                  type: string
+                  description: ID Jabatan baru (opsional jika diterapkan seragam)
+                keterangan:
+                  type: string
+                pegawai_ids:
+                  type: array
+                  items:
+                    type: string
+                pegawai_list:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - pegawai_id
+                    properties:
+                      pegawai_id:
+                        type: string
+                      nm_jab_id:
+                        type: string
+                        description: ID Jabatan baru untuk pegawai ini
+      responses:
+        '201':
+          description: Pegawai berhasil dipindahkan ke unit organisasi tujuan
+
+  /api/peremajaan-kolektif/mutasi-unor/{id}:
+    get:
+      tags:
+        - Peremajaan Kolektif
+      summary: Rincian Riwayat Mutasi Unit Organisasi
+      description: Mengambil rincian riwayat mutasi unit organisasi beserta daftar pegawai yang dipindahkan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Berhasil mengambil rincian mutasi unit organisasi
+
+  /api/peremajaan-kolektif/mutasi-unor/{id}/restore:
+    post:
+      tags:
+        - Peremajaan Kolektif
+      summary: Kembalikan (Restore) Mutasi Unit Organisasi
+      description: Mengembalikan posisi unit kerja seluruh pegawai dalam mutasi ini ke unit organisasi asalnya sebelum dimutasikan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Seluruh pegawai berhasil dikembalikan ke unit organisasi asal
+
   /api/peremajaan-kolektif:
     get:
       tags:
@@ -3093,7 +3300,96 @@ paths:
         '201':
           description: Pegawai berhasil ditambahkan ke SK Kolektif
 
+  /api/peremajaan-kolektif/pegawai-by-unor:
+    get:
+      tags:
+        - Peremajaan Kolektif
+      summary: Daftar Pegawai berdasarkan Unit Organisasi
+      description: Mengambil daftar pegawai aktif pada unit organisasi tertentu untuk keperluan seleksi mutasi masal.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: unor_id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: include_sub
+          schema:
+            type: boolean
+            default: true
+        - in: query
+          name: sk_kolektif_id
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Berhasil mengambil daftar pegawai aktif
+
+  /api/peremajaan-kolektif/{id}/pegawai-batch:
+    post:
+      tags:
+        - Peremajaan Kolektif
+      summary: Mutasi Masal Pegawai ke SK Kolektif
+      description: Menambahkan rombongan pegawai yang dimutasikan dari satu OPD ke OPD tujuan dalam satu batch transaksi.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_unor_id
+                - pegawai_list
+              properties:
+                target_unor_id:
+                  type: string
+                target_nm_jab_id:
+                  type: string
+                keterangan:
+                  type: string
+                pegawai_list:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - pegawai_id
+                    properties:
+                      pegawai_id:
+                        type: string
+                      nip:
+                        type: string
+                      nama:
+                        type: string
+                      nm_jab_id:
+                        type: string
+                      jns_jab_id:
+                        type: string
+                      eselon_id:
+                        type: string
+                      keterangan:
+                        type: string
+      responses:
+        '201':
+          description: Pegawai berhasil dimutasikan dan ditambahkan ke SK Kolektif
+
   /api/peremajaan-kolektif/{id}/pegawai/{pegawaiItemId}:
+
     delete:
       tags:
         - Peremajaan Kolektif

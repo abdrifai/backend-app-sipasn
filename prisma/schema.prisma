@@ -143,6 +143,8 @@ model ref_jabatan {
   ref_jenjangjab      ref_jenjangjab?      @relation(fields: [jenjang_jab_id], references: [id])
   rwt_jabatan         rwt_jabatan[]
   ref_unitorganisasi  ref_unitorganisasi[]
+  mutasi_unor_old     ta_mutasi_unor_pegawai[] @relation("OldMutasiJabatan")
+  mutasi_unor_new     ta_mutasi_unor_pegawai[] @relation("NewMutasiJabatan")
 
   @@index([kategori], map: "idx_ref_jabatan_kategori")
   @@index([nama_jabatan], map: "idx_ref_jabatan_nama")
@@ -209,15 +211,12 @@ model ref_perubahan_data_induk {
   updated_at    DateTime? @updatedAt @db.Timestamp(0)
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 model ref_pindah_instansi {
-  id         String    @db.Char(36)
+  id         String    @id @db.Char(36)
   kode       Int?
   jnsPi      String    @db.VarChar(255)
   created_at DateTime? @db.Timestamp(0)
   updated_at DateTime? @updatedAt @db.Timestamp(0)
-
-  @@ignore
 }
 
 model ref_spns {
@@ -273,15 +272,20 @@ model rwt_perubahan_data_induk {
   tmtSk            DateTime  @db.Date
   pengesahan       String    @db.VarChar(255)
   ket              String    @db.Text
+  file_sk          String?   @db.VarChar(255)
+  is_deleted       Boolean   @default(false)
   user_create      Int?
   user_update      Int?
   created_at       DateTime? @db.Timestamp(0)
   updated_at       DateTime? @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id])
+  @@index([kedudukanpns_id])
+  @@index([jns_perubahan_id])
 }
 
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 model rwt_pindah_instansi {
-  id              String    @db.Char(36)
+  id              String    @id @db.Char(36)
   pegawai_id      String    @db.Char(36)
   sk              String    @db.VarChar(255)
   tglsk           DateTime  @db.Date
@@ -308,8 +312,6 @@ model rwt_pindah_instansi {
   subunorsub_baru String    @db.Char(36)
   created_at      DateTime? @db.Timestamp(0)
   updated_at      DateTime? @updatedAt @db.Timestamp(0)
-
-  @@ignore
 }
 
 model rwt_profesi {
@@ -881,22 +883,7 @@ model ref_unitorganisasi {
   @@index([jab_id])
 }
 
-model rwt_pensiun {
-  id              String    @id @db.Char(36)
-  pegawai_id      String    @db.Char(36)
-  kedudukanpns_id Int
-  no_sk           String?   @db.VarChar(255)
-  tgl_sk          DateTime? @db.Date
-  tmt_pensiun     DateTime? @db.Date
-  file_sk         String?   @db.VarChar(255)
-  ket             String?   @db.Text
-  is_deleted      Boolean   @default(false)
-  created_at      DateTime? @default(now()) @db.Timestamp(0)
-  updated_at      DateTime? @updatedAt @db.Timestamp(0)
 
-  @@index([pegawai_id])
-  @@index([kedudukanpns_id])
-}
 
 model ta_import_pns {
   id                     String    @id @default(uuid()) @db.Char(36)
@@ -1046,3 +1033,66 @@ model ta_catatan {
   @@index([is_deleted])
   @@index([created_at])
 }
+
+model ta_mutasi_unor {
+  id             String                   @id @default(uuid()) @db.Char(36)
+  tgl_mutasi     DateTime                 @default(now()) @db.Timestamp(0)
+  asal_unor_id   String                   @db.Char(36)
+  tujuan_unor_id String                   @db.Char(36)
+  keterangan     String?                  @db.Text
+  status         String                   @default("APPLIED") @db.VarChar(50)
+  created_by     BigInt?                  @db.UnsignedBigInt
+  restored_at    DateTime?                @db.Timestamp(0)
+  restored_by    BigInt?                  @db.UnsignedBigInt
+  is_deleted     Boolean                  @default(false)
+  created_at     DateTime?                @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?                @default(now()) @updatedAt @db.Timestamp(0)
+
+  pegawai_list   ta_mutasi_unor_pegawai[]
+
+  @@index([status])
+  @@index([asal_unor_id])
+  @@index([tujuan_unor_id])
+  @@index([created_at])
+}
+
+model ta_mutasi_unor_pegawai {
+  id                 String         @id @default(uuid()) @db.Char(36)
+  mutasi_unor_id     String         @db.Char(36)
+  pegawai_id         String         @db.Char(36)
+  nip                String         @db.VarChar(20)
+  nama               String?        @db.VarChar(255)
+  rwt_jab_id         String         @db.Char(36)
+
+  old_unorInduk_id   String?        @db.Char(36)
+  old_unor_id        String?        @db.Char(36)
+  old_subUnor_id     String?        @db.Char(36)
+  old_subUnorSub_id  String?        @db.Char(36)
+  old_instansi_id    String?        @db.VarChar(50)
+  old_jnsUnor_id     String?        @db.VarChar(50)
+  old_nm_jab_id      String?        @db.Char(36)
+
+  new_unorInduk_id   String?        @db.Char(36)
+  new_unor_id        String?        @db.Char(36)
+  new_subUnor_id     String?        @db.Char(36)
+  new_subUnorSub_id  String?        @db.Char(36)
+  new_instansi_id    String?        @db.VarChar(50)
+  new_jnsUnor_id     String?        @db.VarChar(50)
+  new_nm_jab_id      String?        @db.Char(36)
+
+  is_deleted         Boolean        @default(false)
+  created_at         DateTime?      @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?      @default(now()) @updatedAt @db.Timestamp(0)
+
+  mutasi_unor        ta_mutasi_unor @relation(fields: [mutasi_unor_id], references: [id], onDelete: Cascade)
+  old_jabatan        ref_jabatan?   @relation("OldMutasiJabatan", fields: [old_nm_jab_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  new_jabatan        ref_jabatan?   @relation("NewMutasiJabatan", fields: [new_nm_jab_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([mutasi_unor_id])
+  @@index([pegawai_id])
+  @@index([nip])
+  @@index([rwt_jab_id])
+  @@index([old_nm_jab_id])
+  @@index([new_nm_jab_id])
+}
+

@@ -12,6 +12,8 @@ router.use(authenticate);
 router.get("/kedudukan-options", pensiunController.getKedudukanOptions);
 router.get("/proyeksi", pensiunController.getProyeksiPensiun);
 router.get("/proyeksi/export", pensiunController.exportProyeksiPensiun);
+router.get("/rekap-tahunan", pensiunController.getRekapTahunan);
+router.get("/rekap-tahunan/export", pensiunController.exportRekapTahunan);
 router.get("/", pensiunController.getAllPensiun);
 router.post(
   "/",

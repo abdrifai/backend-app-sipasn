@@ -44,3 +44,75 @@ export const addPegawaiKolektifSchema = Joi.object({
   eselon_id: Joi.string().max(36).allow(null, "").optional(),
   keterangan: Joi.string().allow(null, "").optional(),
 });
+
+export const getPegawaiByUnorSchema = Joi.object({
+  unor_id: Joi.string().max(36).required().messages({
+    "any.required": "Unit Organisasi (unor_id) wajib diisi",
+    "string.empty": "Unit Organisasi (unor_id) tidak boleh kosong",
+  }),
+  include_sub: Joi.alternatives().try(Joi.boolean(), Joi.string()).default(true),
+  sk_kolektif_id: Joi.string().max(36).allow(null, "").optional(),
+  search: Joi.string().allow(null, "").optional(),
+});
+
+export const addPegawaiBatchSchema = Joi.object({
+  target_unor_id: Joi.string().max(36).required().messages({
+    "any.required": "Unit Organisasi tujuan wajib dipilih",
+    "string.empty": "Unit Organisasi tujuan tidak boleh kosong",
+  }),
+  target_nm_jab_id: Joi.string().max(36).allow(null, "").optional(),
+  keterangan: Joi.string().max(500).allow(null, "").optional(),
+  pegawai_list: Joi.array()
+    .items(
+      Joi.object({
+        pegawai_id: Joi.string().max(36).required().messages({
+          "any.required": "ID Pegawai wajib disertakan",
+        }),
+        nip: Joi.string().max(20).allow(null, "").optional(),
+        nama: Joi.string().max(255).allow(null, "").optional(),
+        nm_jab_id: Joi.string().max(36).allow(null, "").optional(),
+        jns_jab_id: Joi.string().max(36).allow(null, "").optional(),
+        eselon_id: Joi.string().max(36).allow(null, "").optional(),
+        keterangan: Joi.string().max(500).allow(null, "").optional(),
+      })
+    )
+    .min(1)
+    .required()
+    .messages({
+      "array.min": "Pilih minimal 1 pegawai untuk dimutasi",
+      "any.required": "Daftar pegawai wajib disertakan",
+    }),
+});
+
+export const createMutasiUnorSchema = Joi.object({
+  asal_unor_id: Joi.string().max(36).required().messages({
+    "any.required": "Unit Organisasi Asal wajib dipilih",
+    "string.empty": "Unit Organisasi Asal tidak boleh kosong",
+  }),
+  tujuan_unor_id: Joi.string().max(36).required().messages({
+    "any.required": "Unit Organisasi Tujuan wajib dipilih",
+    "string.empty": "Unit Organisasi Tujuan tidak boleh kosong",
+  }),
+  target_nm_jab_id: Joi.string().max(36).allow(null, "").optional(),
+  keterangan: Joi.string().max(500).allow(null, "").optional(),
+  pegawai_ids: Joi.array()
+    .items(Joi.string().max(36).required())
+    .optional(),
+  pegawai_list: Joi.array()
+    .items(
+      Joi.object({
+        pegawai_id: Joi.string().max(36).required().messages({
+          "any.required": "ID Pegawai wajib disertakan",
+        }),
+        nm_jab_id: Joi.string().max(36).allow(null, "").optional(),
+        tujuan_unor_id: Joi.string().max(36).allow(null, "").optional(),
+      })
+    )
+    .optional(),
+})
+  .or("pegawai_ids", "pegawai_list")
+  .messages({
+    "object.missing": "Pilih minimal 1 pegawai untuk dipindahkan",
+  });
+
+
