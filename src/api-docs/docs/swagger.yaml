@@ -41,6 +41,8 @@ tags:
     description: Endpoint diagnostik dan analisis data database
   - name: Import PNS
     description: Endpoint untuk import data PNS dari file CSV, monitoring batch, dan manajemen data terimport
+  - name: Pemberhentian & Pensiun
+    description: Endpoint pengelolaan penetapan pemberhentian, pensiun ASN, dan riwayat status kedudukan pegawai
 
 paths:
 
@@ -2626,9 +2628,135 @@ paths:
       security:
         - bearerAuth: []
         - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: is_aktif
+          schema:
+            type: integer
+            enum: [0, 1]
       responses:
         '200':
           $ref: '#/components/responses/SuccessResponse'
+    post:
+      tags:
+        - Ref Jenis Mutasi
+      summary: Tambah Jenis Mutasi Baru
+      description: Menambahkan data referensi jenis mutasi kepegawaian baru.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - kode
+                - jnsMutasi
+              properties:
+                kode:
+                  type: integer
+                jnsMutasi:
+                  type: string
+                is_aktif:
+                  type: integer
+                  enum: [0, 1]
+                  default: 1
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/ref-jns-mutasi/{id}:
+    get:
+      tags:
+        - Ref Jenis Mutasi
+      summary: Detail Jenis Mutasi
+      description: Mengambil detail data referensi jenis mutasi berdasarkan ID.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Ref Jenis Mutasi
+      summary: Update Jenis Mutasi
+      description: Memperbarui data jenis mutasi beserta status is_aktif.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kode:
+                  type: integer
+                jnsMutasi:
+                  type: string
+                is_aktif:
+                  type: integer
+                  enum: [0, 1]
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags:
+        - Ref Jenis Mutasi
+      summary: Hapus Jenis Mutasi
+      description: Menghapus (soft delete) jenis mutasi berdasarkan ID.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/ref-jns-hukuman:
     get:
@@ -3430,6 +3558,168 @@ paths:
       responses:
         '200':
           description: SK Kolektif berhasil diproses ke Riwayat Jabatan
+
+  # ==========================================
+  # PEMBERHENTIAN & PENSIUN
+  # ==========================================
+  /api/pemberhentian:
+    get:
+      tags:
+        - Pemberhentian & Pensiun
+      summary: Ambil daftar riwayat penetapan pemberhentian pegawai
+      description: Mengambil daftar riwayat penetapan pemberhentian / pensiun pegawai beserta informasi pegawai dan filter status kedudukan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Pencarian nama, NIP, nomor SK, atau keterangan
+        - in: query
+          name: kedudukanpns_id
+          schema:
+            type: integer
+          description: Filter ID kedudukan PNS pemberhentian
+      responses:
+        '200':
+          description: Berhasil mengambil data pensiun/pemberhentian
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Pemberhentian & Pensiun
+      summary: Simpan penetapan pemberhentian pegawai baru
+      description: Membuat catatan penetapan pemberhentian/pensiun pegawai dan memperbarui status kedudukan pegawai.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - pegawai_id
+                - kedudukanpns_id
+              properties:
+                pegawai_id:
+                  type: string
+                kedudukanpns_id:
+                  type: integer
+                no_sk:
+                  type: string
+                tgl_sk:
+                  type: string
+                  format: date
+                tmt_pensiun:
+                  type: string
+                  format: date
+                ket:
+                  type: string
+                file_sk:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Penetapan pensiun pegawai berhasil disimpan
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/pemberhentian/{id}:
+    get:
+      tags:
+        - Pemberhentian & Pensiun
+      summary: Ambil detail data penetapan pemberhentian
+      description: Mengambil detail satu catatan riwayat penetapan pemberhentian/pensiun pegawai berdasarkan ID.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Berhasil mengambil data pensiun
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Pemberhentian & Pensiun
+      summary: Update data penetapan pemberhentian pegawai
+      description: Memperbarui informasi penetapan pemberhentian/pensiun pegawai (nomor SK, tanggal SK, TMT, berkas SK, status kedudukan).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                kedudukanpns_id:
+                  type: integer
+                no_sk:
+                  type: string
+                tgl_sk:
+                  type: string
+                  format: date
+                tmt_pensiun:
+                  type: string
+                  format: date
+                ket:
+                  type: string
+                file_sk:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Data penetapan pensiun berhasil diperbarui
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags:
+        - Pemberhentian & Pensiun
+      summary: Hapus / batalkan penetapan pemberhentian pegawai
+      description: Melakukan soft delete riwayat pemberhentian dan mengembalikan status pegawai ke PNS AKTIF jika tidak ada riwayat lain.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Data pensiun berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 # ==========================================
 # COMPONENTS & SCHEMAS

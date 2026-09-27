@@ -18,9 +18,19 @@ export const getKedudukanOptions = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Berhasil mengambil opsi kedudukan pensiun", data);
 });
 
+export const getPensiunById = asyncHandler(async (req, res) => {
+  const result = await pensiunService.getPensiunById(req.params.id);
+  return sendSuccess(res, 200, "Berhasil mengambil data pensiun", result);
+});
+
 export const createPensiun = asyncHandler(async (req, res) => {
   const result = await pensiunService.createPensiun(req.body, req.file);
   return sendSuccess(res, 201, "Penetapan pensiun pegawai berhasil disimpan", result);
+});
+
+export const updatePensiun = asyncHandler(async (req, res) => {
+  const result = await pensiunService.updatePensiun(req.params.id, req.body, req.file);
+  return sendSuccess(res, 200, "Data penetapan pensiun berhasil diperbarui", result);
 });
 
 export const deletePensiun = asyncHandler(async (req, res) => {

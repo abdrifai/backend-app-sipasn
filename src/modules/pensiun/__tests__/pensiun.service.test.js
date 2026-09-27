@@ -232,6 +232,107 @@ describe("pensiun.service", () => {
     });
   });
 
+  describe("getPensiunById", () => {
+    it("harus melempar 404 jika data pensiun tidak ditemukan", async () => {
+      mockPrisma.rwt_perubahan_data_induk.findFirst.mockResolvedValue(null);
+
+      await expect(pensiunService.getPensiunById("non-existent")).rejects.toThrow(AppError);
+    });
+
+    it("harus mengembalikan detail data pensiun lengkap dengan pegawai dan nama kedudukan", async () => {
+      mockPrisma.rwt_perubahan_data_induk.findFirst.mockResolvedValue({
+        id: "pen-1",
+        pegawai_id: "p1",
+        kedudukanpns_id: 2,
+        sk: "SK/123",
+        tglSk: new Date("2026-01-01"),
+        tmtSk: new Date("2026-02-01"),
+        pengesahan: "BUPATI",
+        ket: "Keterangan",
+        file_sk: "uploads/sk.pdf",
+        created_at: new Date("2026-01-01"),
+      });
+      mockPrisma.ta_pegawai.findUnique.mockResolvedValue({
+        id: "p1",
+        nipBaru: "19750101",
+        ta_orang: { nama: "Ahmad", foto: null },
+        rwt_jabatan: {
+          ref_jabatan: { nama_jabatan: "Pranata Komputer" },
+          ref_unitorganisasi: { nmUnor: "Diskominfo" },
+        },
+      });
+      mockPrisma.ref_kedudukanpns.findFirst = jest.fn().mockResolvedValue({
+        id: 2,
+        kedudukanpns: "PENSIUN MASA WAKTU",
+      });
+
+      const result = await pensiunService.getPensiunById("pen-1");
+
+      expect(result.id).toBe("pen-1");
+      expect(result.no_sk).toBe("SK/123");
+      expect(result.pegawai.nama).toBe("Ahmad");
+      expect(result.nama_kedudukan).toBe("PENSIUN MASA WAKTU");
+    });
+  });
+
+  describe("updatePensiun", () => {
+    it("harus melempar 404 jika data pensiun tidak ditemukan", async () => {
+      mockPrisma.rwt_perubahan_data_induk.findFirst.mockResolvedValue(null);
+
+      await expect(
+        pensiunService.updatePensiun("pen-non-existent", { no_sk: "SK/NEW" }, null)
+      ).rejects.toThrow(AppError);
+    });
+
+    it("harus mengupdate data pensiun dan mengubah status pegawai jika kedudukan berubah", async () => {
+      const existingRecord = {
+        id: "pen-1",
+        pegawai_id: "p1",
+        kedudukanpns_id: 2,
+        sk: "SK/OLD",
+        tglSk: new Date("2026-01-01"),
+        tmtSk: new Date("2026-02-01"),
+        pengesahan: "BUPATI",
+        ket: "Ket Lama",
+        file_sk: "old_sk.pdf",
+      };
+      mockPrisma.rwt_perubahan_data_induk.findFirst.mockResolvedValue(existingRecord);
+      mockPrisma.rwt_perubahan_data_induk.update.mockResolvedValue({
+        ...existingRecord,
+        kedudukanpns_id: 4,
+        sk: "SK/NEW",
+        file_sk: "new_path/sk.pdf",
+      });
+      mockPrisma.ta_pegawai.update.mockResolvedValue({ id: "p1", kedudukanPns_id: 4 });
+
+      const result = await pensiunService.updatePensiun(
+        "pen-1",
+        {
+          kedudukanpns_id: 4,
+          no_sk: "SK/NEW",
+          ket: "Pemberhentian Baru",
+        },
+        { path: "new_path/sk.pdf" }
+      );
+
+      expect(mockPrisma.rwt_perubahan_data_induk.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "pen-1" },
+          data: expect.objectContaining({
+            kedudukanpns_id: 4,
+            sk: "SK/NEW",
+            file_sk: "new_path/sk.pdf",
+          }),
+        })
+      );
+      expect(mockPrisma.ta_pegawai.update).toHaveBeenCalledWith({
+        where: { id: "p1" },
+        data: { kedudukanPns_id: 4 },
+      });
+      expect(result.sk).toBe("SK/NEW");
+    });
+  });
+
   describe("getRekapTahunanReport", () => {
     it("harus mengembalikan ringkasan rekapitulasi tahunan", async () => {
       const mockQueryRawResult = [

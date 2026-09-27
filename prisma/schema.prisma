@@ -700,6 +700,7 @@ model ref_jnsmutasi {
   id         String    @id @db.Char(36)
   kode       Int
   jnsMutasi  String    @db.VarChar(255)
+  is_aktif   Int       @default(1)
   is_deleted Boolean   @default(false)
   created_at DateTime? @db.Timestamp(0)
   updated_at DateTime? @updatedAt @db.Timestamp(0)

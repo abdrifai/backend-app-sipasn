@@ -289,7 +289,12 @@ export const getAllPegawai = async (query) => {
   const search = query.search || "";
   const status = query.status || "aktif";
 
-  const result = await pegawaiRepository.findAll({ page, limit, search, status });
+  const [allKedudukan, result] = await Promise.all([
+    pegawaiRepository.findAllKedudukan(),
+    pegawaiRepository.findAll({ page, limit, search, status }),
+  ]);
+  const kedudukanMap = new Map(allKedudukan.map((k) => [Number(k.id), k.kedudukanpns]));
+  const activeKedudukanIds = [1, 7, 8, 10];
 
   // Format data untuk frontend secara paralel
   const formattedData = await Promise.all(
@@ -318,6 +323,10 @@ export const getAllPegawai = async (query) => {
       const gb = p.rwt_pend?.gb;
       const namaFormatted = formatNamaGelar(p.ta_orang?.nama, gd, gb);
 
+      const isAktif = p.kedudukanPns_id !== null && p.kedudukanPns_id !== undefined && activeKedudukanIds.includes(Number(p.kedudukanPns_id));
+      const statusKedudukan = kedudukanMap.get(Number(p.kedudukanPns_id)) || (isAktif ? "Aktif" : "Non-Aktif");
+      const statusPns = isAktif ? "PNS Aktif" : "PNS Non Aktif";
+
       return {
         id: p.id,
         nip: p.nipBaru,
@@ -332,6 +341,11 @@ export const getAllPegawai = async (query) => {
         pangkat: p.rwt_gol?.ref_gol?.pangkat || "-",
         jabatan: jabatan,
         unit_kerja: rwtJab?.ref_unitorganisasi?.nmUnor || "-",
+        kedudukanPns_id: p.kedudukanPns_id,
+        is_aktif: isAktif,
+        is_aktif_pns: isAktif,
+        status_pns: statusPns,
+        status_kedudukan: statusKedudukan,
       };
     })
   );
@@ -630,6 +644,7 @@ export const getPegawaiDetail = async (id) => {
     allJenjangDiklat,
     allJnsKp,
     allGol,
+    allKedudukan,
   ] = await Promise.all([
     pegawaiRepository.findRiwayatByPegawaiId(p.id, p.nipBaru),
     pegawaiRepository.findAllJkl(),
@@ -640,7 +655,15 @@ export const getPegawaiDetail = async (id) => {
     pegawaiRepository.findAllJenjangDiklat(),
     pegawaiRepository.findAllJnsKp(),
     pegawaiRepository.findAllGol(),
+    pegawaiRepository.findAllKedudukan(),
   ]);
+
+  // Status kedudukan & aktif/non-aktif PNS
+  const activeKedudukanIds = [1, 7, 8, 10];
+  const isAktifPns = p.kedudukanPns_id !== null && p.kedudukanPns_id !== undefined && activeKedudukanIds.includes(Number(p.kedudukanPns_id));
+  const kedudukanRef = allKedudukan.find((k) => Number(k.id) === Number(p.kedudukanPns_id));
+  const statusPns = isAktifPns ? "PNS Aktif" : "PNS Non Aktif";
+  const statusKedudukan = kedudukanRef?.kedudukanpns || (isAktifPns ? "Aktif" : "Non Aktif");
 
   const rwtJab = p.rwt_jabatan;
   let jabatan = rwtJab?.ref_jabatan?.nama_jabatan || rwtJab?.ref_jnsjab?.jnsjab || "-";
@@ -1047,6 +1070,10 @@ export const getPegawaiDetail = async (id) => {
     unit_kerja: rwtJab?.ref_unitorganisasi?.nmUnor || (formattedRiwayatJabatan[0]?.unit_kerja || "-"),
     masa_kerja_golongan: mk_golongan,
     masa_kerja_saat_ini: mk_saat_ini,
+    status_pns: statusPns,
+    status_kedudukan: statusKedudukan,
+    is_aktif: isAktifPns,
+    is_aktif_pns: isAktifPns,
     riwayat_jabatan: formattedRiwayatJabatan,
     riwayat_golongan: formattedRiwayatGolongan,
     riwayat_pendidikan: formattedRiwayatPendidikan,

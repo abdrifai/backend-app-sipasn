@@ -218,6 +218,163 @@ export const createPensiun = async (data, file) => {
   return result;
 };
 
+export const getPensiunById = async (id) => {
+  const item = await prisma.rwt_perubahan_data_induk.findFirst({
+    where: { id, is_deleted: false },
+    select: {
+      id: true,
+      pegawai_id: true,
+      kedudukanpns_id: true,
+      sk: true,
+      tglSk: true,
+      tmtSk: true,
+      pengesahan: true,
+      ket: true,
+      file_sk: true,
+      created_at: true,
+    },
+  });
+
+  if (!item) {
+    throw new AppError("Data pemberhentian tidak ditemukan", 404);
+  }
+
+  const [pegawai, kedudukan] = await Promise.all([
+    prisma.ta_pegawai.findUnique({
+      where: { id: item.pegawai_id },
+      select: {
+        id: true,
+        nipBaru: true,
+        ta_orang: {
+          select: {
+            nama: true,
+            foto: true,
+          },
+        },
+        rwt_jabatan: {
+          select: {
+            ref_jabatan: {
+              select: {
+                nama_jabatan: true,
+                ref_jnsjab: {
+                  select: {
+                    jnsjab: true,
+                  },
+                },
+              },
+            },
+            ref_unitorganisasi: {
+              select: {
+                nmUnor: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    item.kedudukanpns_id
+      ? prisma.ref_kedudukanpns.findFirst({
+          where: { id: item.kedudukanpns_id, is_deleted: false },
+          select: { id: true, kedudukanpns: true },
+        })
+      : null,
+  ]);
+
+  return {
+    id: item.id,
+    pegawai_id: item.pegawai_id,
+    kedudukanpns_id: item.kedudukanpns_id,
+    no_sk: item.sk,
+    tgl_sk: item.tglSk,
+    tmt_pensiun: item.tmtSk,
+    pengesahan: item.pengesahan,
+    file_sk: item.file_sk,
+    ket: item.ket,
+    created_at: item.created_at,
+    pegawai: pegawai
+      ? {
+          id: pegawai.id,
+          nipBaru: pegawai.nipBaru,
+          nama: pegawai.ta_orang?.nama || "-",
+          foto: pegawai.ta_orang?.foto || null,
+          jabatan:
+            pegawai.rwt_jabatan?.ref_jabatan?.nama_jabatan ||
+            pegawai.rwt_jabatan?.ref_jabatan?.ref_jnsjab?.jnsjab ||
+            "-",
+          unor: pegawai.rwt_jabatan?.ref_unitorganisasi?.nmUnor || "-",
+        }
+      : null,
+    nama_kedudukan: kedudukan?.kedudukanpns || "PEMBERHENTIAN",
+  };
+};
+
+export const updatePensiun = async (id, data, file) => {
+  const existing = await prisma.rwt_perubahan_data_induk.findFirst({
+    where: { id, is_deleted: false },
+    select: {
+      id: true,
+      pegawai_id: true,
+      kedudukanpns_id: true,
+      sk: true,
+      tglSk: true,
+      tmtSk: true,
+      pengesahan: true,
+      ket: true,
+      file_sk: true,
+    },
+  });
+
+  if (!existing) {
+    throw new AppError("Data pemberhentian tidak ditemukan", 404);
+  }
+
+  const { kedudukanpns_id, no_sk, tgl_sk, tmt_pensiun, pengesahan, ket } = data;
+  const filePath = file ? file.path.replace(/\\/g, "/") : existing.file_sk;
+  const kedudukanIdInt = kedudukanpns_id ? parseInt(kedudukanpns_id, 10) : existing.kedudukanpns_id;
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Update rwt_perubahan_data_induk
+    const updated = await tx.rwt_perubahan_data_induk.update({
+      where: { id },
+      data: {
+        ...(kedudukanIdInt ? { kedudukanpns_id: kedudukanIdInt } : {}),
+        ...(no_sk !== undefined ? { sk: no_sk || "-" } : {}),
+        ...(tgl_sk !== undefined ? { tglSk: parseOptionalDate(tgl_sk) || existing.tglSk } : {}),
+        ...(tmt_pensiun !== undefined ? { tmtSk: parseOptionalDate(tmt_pensiun) || existing.tmtSk } : {}),
+        ...(pengesahan !== undefined ? { pengesahan: pengesahan || "BUPATI TOJO UNA-UNA" } : {}),
+        ...(ket !== undefined ? { ket: ket || "Penetapan Pemberhentian Pegawai" } : {}),
+        file_sk: filePath,
+      },
+      select: {
+        id: true,
+        pegawai_id: true,
+        kedudukanpns_id: true,
+        sk: true,
+        tglSk: true,
+        tmtSk: true,
+        pengesahan: true,
+        ket: true,
+        file_sk: true,
+        updated_at: true,
+      },
+    });
+
+    // 2. Update status kedudukan pegawai jika berubah
+    if (kedudukanIdInt && kedudukanIdInt !== existing.kedudukanpns_id) {
+      await tx.ta_pegawai.update({
+        where: { id: existing.pegawai_id },
+        data: {
+          kedudukanPns_id: kedudukanIdInt,
+        },
+      });
+    }
+
+    return updated;
+  });
+
+  return result;
+};
+
 export const deletePensiun = async (id) => {
   const existing = await prisma.rwt_perubahan_data_induk.findFirst({
     where: { id, is_deleted: false },

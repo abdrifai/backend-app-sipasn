@@ -7,22 +7,28 @@ import prisma from "../../config/database.js";
 export const findAll = async ({ page = 1, limit = 10, search = "", status = "aktif", sortBy = "id", sortOrder = "asc" }) => {
   const skip = (page - 1) * limit;
 
-  let kedudukanCondition = { in: [1, 7, 8, 10] };
-  if (status === "non-aktif") {
-    kedudukanCondition = { notIn: [1, 7, 8, 10] };
-  } else if (status === "semua") {
-    kedudukanCondition = undefined;
+  const andConditions = [];
+  if (status === "aktif") {
+    andConditions.push({ kedudukanPns_id: { in: [1, 7, 8, 10] } });
+  } else if (status === "non-aktif") {
+    andConditions.push({
+      OR: [
+        { kedudukanPns_id: { notIn: [1, 7, 8, 10] } },
+        { kedudukanPns_id: null },
+      ],
+    });
   }
 
-  const where = {
-    ...(kedudukanCondition ? { kedudukanPns_id: kedudukanCondition } : {}),
-    ...(search && {
+  if (search) {
+    andConditions.push({
       OR: [
         { nipBaru: { contains: search } },
         { ta_orang: { nama: { contains: search } } },
       ],
-    }),
-  };
+    });
+  }
+
+  const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
   const [data, total] = await Promise.all([
     prisma.ta_pegawai.findMany({
@@ -30,6 +36,7 @@ export const findAll = async ({ page = 1, limit = 10, search = "", status = "akt
       select: {
         id: true,
         nipBaru: true,
+        kedudukanPns_id: true,
         ta_orang: {
           select: {
             nama: true,
@@ -317,6 +324,20 @@ export const findRefKedudukanNonAktif = async () => {
       is_deleted: false,
       id: { notIn: [1, 7, 8, 10] },
     },
+    select: {
+      id: true,
+      kedudukanpns: true,
+    },
+    orderBy: { id: "asc" },
+  });
+};
+
+/**
+ * Ambil semua data referensi kedudukan PNS
+ */
+export const findAllKedudukan = async () => {
+  return prisma.ref_kedudukanpns.findMany({
+    where: { is_deleted: false },
     select: {
       id: true,
       kedudukanpns: true,

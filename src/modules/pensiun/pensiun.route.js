@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as pensiunController from "./pensiun.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";
-import { createPensiunSchema } from "./pensiun.validation.js";
+import { createPensiunSchema, updatePensiunSchema } from "./pensiun.validation.js";
 import { uploadDokumenSK } from "../../middlewares/upload.middleware.js";
 import { authenticate } from "../../middlewares/auth.middleware.js";
 
@@ -15,11 +15,18 @@ router.get("/proyeksi/export", pensiunController.exportProyeksiPensiun);
 router.get("/rekap-tahunan", pensiunController.getRekapTahunan);
 router.get("/rekap-tahunan/export", pensiunController.exportRekapTahunan);
 router.get("/", pensiunController.getAllPensiun);
+router.get("/:id", pensiunController.getPensiunById);
 router.post(
   "/",
   uploadDokumenSK.single("file_sk"),
   validate(createPensiunSchema),
   pensiunController.createPensiun
+);
+router.put(
+  "/:id",
+  uploadDokumenSK.single("file_sk"),
+  validate(updatePensiunSchema),
+  pensiunController.updatePensiun
 );
 router.delete("/:id", pensiunController.deletePensiun);
 
