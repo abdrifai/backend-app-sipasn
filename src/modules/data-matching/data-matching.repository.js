@@ -12,7 +12,7 @@ export const cleanNip = (nip) => {
  * Ambil seluruh data referensi master untuk mapping nama/label
  */
 export const getReferenceMaps = async () => {
-  const [agamaList, kawinList, kedudukanList, tktPendList, unorList] = await Promise.all([
+  const [agamaList, kawinList, kedudukanList, tktPendList, unorList, pendList, cpnsList] = await Promise.all([
     prisma.ref_agama.findMany({ select: { id: true, agama: true } }),
     prisma.ref_kawin.findMany({ select: { id: true, kawin: true } }),
     prisma.ref_kedudukanpns.findMany({ select: { id: true, kedudukanpns: true } }),
@@ -20,7 +20,9 @@ export const getReferenceMaps = async () => {
     prisma.ref_unitorganisasi.findMany({
       where: { is_deleted: false },
       select: { id: true, nmUnor: true, level: true, kode: true }
-    })
+    }),
+    prisma.ref_pend.findMany({ select: { id: true, pend: true } }),
+    prisma.ta_cpnspns.findMany({ select: { pegawai_id: true, spns_id: true } })
   ]);
 
   const agamaMap = new Map(agamaList.map(a => [String(a.id), a.agama]));
@@ -28,8 +30,19 @@ export const getReferenceMaps = async () => {
   const kedudukanMap = new Map(kedudukanList.map(k => [String(k.id), k.kedudukanpns]));
   const tktPendMap = new Map(tktPendList.map(t => [String(t.id), t.tktpend]));
   const unorMap = new Map(unorList.map(u => [u.id, (u.nmUnor || '').trim()]));
+  const pendMap = new Map(pendList.map(p => [p.id, p.pend]));
 
-  return { agamaMap, kawinMap, kedudukanMap, tktPendMap, unorMap };
+  const pnsPegawaiSet = new Set();
+  const cpnsPegawaiSet = new Set();
+  for (const c of cpnsList) {
+    if (String(c.spns_id) === '2') {
+      pnsPegawaiSet.add(c.pegawai_id);
+    } else if (String(c.spns_id) === '1') {
+      cpnsPegawaiSet.add(c.pegawai_id);
+    }
+  }
+
+  return { agamaMap, kawinMap, kedudukanMap, tktPendMap, unorMap, pendMap, pnsPegawaiSet, cpnsPegawaiSet };
 };
 
 /**
@@ -46,6 +59,7 @@ export const findAllLocalPegawai = async () => {
       nipLama: true,
       nik: true,
       kedudukanPns_id: true,
+      spns_id: true,
       ta_orang: {
         select: {
           id: true,
@@ -103,6 +117,7 @@ export const findAllLocalPegawai = async () => {
         select: {
           id: true,
           tktPend_id: true,
+          pend_id: true,
           thnLulus: true,
           jurusan: true,
           nmSekolah: true,
@@ -190,6 +205,7 @@ export const findLocalPegawaiByNip = async (nip) => {
       nipLama: true,
       nik: true,
       kedudukanPns_id: true,
+      spns_id: true,
       ta_orang: {
         select: {
           id: true,
@@ -250,6 +266,7 @@ export const findLocalPegawaiByNip = async (nip) => {
         select: {
           id: true,
           tktPend_id: true,
+          pend_id: true,
           thnLulus: true,
           jurusan: true,
           nmSekolah: true,

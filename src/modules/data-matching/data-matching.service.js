@@ -11,13 +11,69 @@ const normStr = (str) => {
 };
 
 /**
- * Normalisasi format golongan (contoh: "III/A", "iii/a" -> "III/a")
+ * Normalisasi format golongan (contoh: "III/A", "iii/a" -> "III/A")
  */
 const normGol = (gol) => {
   if (!gol) return "";
-  const cleaned = String(gol).trim().toUpperCase();
-  // Format standar: IV/E, IV/D, IV/C, IV/B, IV/A, III/D, III/C, III/B, III/A, II/D, II/C, II/B, II/A, I/D, I/C, I/B, I/A
-  return cleaned;
+  return String(gol).trim().toUpperCase();
+};
+
+/**
+ * Normalisasi string pendidikan untuk komparasi toleran
+ */
+const normEdu = (str) => {
+  if (!str || str === "-") return "";
+  return String(str)
+    .toUpperCase()
+    .replace(/STRATA\s*1/g, "S 1")
+    .replace(/STRATA\s*2/g, "S 2")
+    .replace(/STRATA\s*3/g, "S 3")
+    .replace(/DIPLOMA\s*III/g, "D III")
+    .replace(/DIPLOMA\s*IV/g, "D IV")
+    .replace(/DIPLOMA\s*II/g, "D II")
+    .replace(/DIPLOMA\s*I/g, "D I")
+    .replace(/A[.\-\s]*IV/g, "")
+    .replace(/[^A-Z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const cleanEduTokens = (str) => {
+  const n = normEdu(str);
+  if (!n) return "";
+  const noise = new Set(["PENDIDIKAN", "DAN", "ILMU", "JURUSAN", "PROGRAM", "STUDI"]);
+  return n.split(" ").filter((w) => !noise.has(w)).join(" ");
+};
+
+const matchEdu = (a, b) => {
+  const nA = normEdu(a);
+  const nB = normEdu(b);
+  if (!nA || !nB) return false;
+  if (nA === nB || nA.includes(nB) || nB.includes(nA)) return true;
+  const cA = cleanEduTokens(a);
+  const cB = cleanEduTokens(b);
+  if (cA && cB && (cA === cB || cA.includes(cB) || cB.includes(cA))) return true;
+  return false;
+};
+
+/**
+ * Dapatkan status kepegawaian (PNS / CPNS) SIASN
+ */
+const getSiasnStatusKepegawaian = (statusCpnsPns) => {
+  if (!statusCpnsPns) return "-";
+  const s = String(statusCpnsPns).trim().toUpperCase();
+  if (s === "C" || s === "CPNS") return "CPNS";
+  if (s === "P" || s === "PNS") return "PNS";
+  return s;
+};
+
+/**
+ * Dapatkan status kepegawaian (PNS / CPNS) Lokal
+ */
+const getLocalStatusKepegawaian = (pegawai, cpnsSet, pnsSet) => {
+  if (!pegawai) return "-";
+  const isCpns = pegawai.spns_id === 1 || (cpnsSet.has(pegawai.id) && !pnsSet.has(pegawai.id));
+  return isCpns ? "CPNS" : "PNS";
 };
 
 /**
@@ -41,7 +97,13 @@ const getLocalUnorName = (rwtJabatan, unorMap) => {
 };
 
 /**
- * Komparasi data lokal vs SIASN untuk seluruh pegawai
+ * Komparasi data lokal vs SIASN untuk 6 atribut utama:
+ * 1. Nama
+ * 2. Golongan
+ * 3. Pendidikan
+ * 4. Jabatan
+ * 5. Unit Kerja
+ * 6. Status Kepegawaian (PNS dan CPNS)
  */
 export const buildMatchingDataset = async () => {
   const [localList, siasnList, refMaps] = await Promise.all([
@@ -50,7 +112,7 @@ export const buildMatchingDataset = async () => {
     repository.getReferenceMaps(),
   ]);
 
-  const { agamaMap, kawinMap, kedudukanMap, unorMap } = refMaps;
+  const { unorMap, pendMap, tktPendMap, pnsPegawaiSet, cpnsPegawaiSet } = refMaps;
 
   // Indexing SIASN by clean NIP
   const siasnMap = new Map();
@@ -79,11 +141,12 @@ export const buildMatchingDataset = async () => {
   let countOnlyLocal = 0;
   let countOnlySiasn = 0;
   const mismatchBreakdown = {
-    golongan: 0,
-    jabatan: 0,
-    unor: 0,
     nama: 0,
-    kedudukan: 0,
+    golongan: 0,
+    pendidikan: 0,
+    jabatan: 0,
+    unit_kerja: 0,
+    status_kepegawaian: 0,
   };
 
   for (const nip of allNips) {
@@ -93,10 +156,17 @@ export const buildMatchingDataset = async () => {
     // 1. Hanya ada di Lokal
     if (local && !siasn) {
       countOnlyLocal++;
+      const localStatus = getLocalStatusKepegawaian(local, cpnsPegawaiSet, pnsPegawaiSet);
       const localGol = local.rwt_gol?.ref_gol?.gol || "-";
       const localJabatan = local.rwt_jabatan?.ref_jabatan?.nama_jabatan || "-";
       const localUnor = getLocalUnorName(local.rwt_jabatan, unorMap);
-      const localKedudukan = kedudukanMap.get(String(local.kedudukanPns_id)) || "Aktif";
+      const localPendidikan =
+        (local.rwt_pend?.pend_id && pendMap.get(local.rwt_pend.pend_id)) ||
+        local.rwt_pend?.jurusan ||
+        (local.rwt_pend?.tktPend_id && tktPendMap.get(String(local.rwt_pend.tktPend_id))) ||
+        "-";
+      const localNama = local.ta_orang?.nama || "-";
+      const localNamaLengkap = [local.rwt_pend?.gd, local.ta_orang?.nama, local.rwt_pend?.gb].filter(Boolean).join(" ").trim();
 
       matchedRecords.push({
         nip,
@@ -106,16 +176,18 @@ export const buildMatchingDataset = async () => {
           id: local.id,
           nip: local.nipBaru,
           nik: local.nik || local.ta_orang?.nik || "-",
-          nama: local.ta_orang?.nama || "-",
+          nama: localNama,
           gelar_depan: local.rwt_pend?.gd || "",
           gelar_belakang: local.rwt_pend?.gb || "",
-          nama_lengkap: [local.rwt_pend?.gd, local.ta_orang?.nama, local.rwt_pend?.gb].filter(Boolean).join(" ").trim(),
+          nama_lengkap: localNamaLengkap,
+          status_kepegawaian: localStatus,
           golongan: localGol,
           pangkat: local.rwt_gol?.ref_gol?.pangkat || "-",
+          pendidikan: localPendidikan,
           jabatan: localJabatan,
+          unit_kerja: localUnor,
           unor: localUnor,
           unorInduk_id: local.rwt_jabatan?.unorInduk_id || null,
-          kedudukan: localKedudukan,
         },
         siasn: null,
       });
@@ -125,6 +197,14 @@ export const buildMatchingDataset = async () => {
     // 2. Hanya ada di SIASN
     if (!local && siasn) {
       countOnlySiasn++;
+      const siasnStatus = getSiasnStatusKepegawaian(siasn.status_cpns_pns);
+      const siasnGol = siasn.gol_akhir_nama || "-";
+      const siasnJabatan = siasn.jabatan_nama || "-";
+      const siasnUnor = siasn.unor_nama || "-";
+      const siasnPendidikan = siasn.pendidikan_nama || siasn.tingkat_pendidikan_nama || "-";
+      const siasnNama = siasn.nama || "-";
+      const siasnNamaLengkap = [siasn.gelar_depan, siasn.nama, siasn.gelar_belakang].filter(Boolean).join(" ").trim();
+
       matchedRecords.push({
         nip,
         status: "only_siasn",
@@ -134,24 +214,36 @@ export const buildMatchingDataset = async () => {
           id: siasn.id,
           nip: repository.cleanNip(siasn.nip_baru),
           nik: siasn.nik ? String(siasn.nik).replace(/[^0-9]/g, "") : "-",
-          nama: siasn.nama || "-",
+          nama: siasnNama,
           gelar_depan: siasn.gelar_depan || "",
           gelar_belakang: siasn.gelar_belakang || "",
-          nama_lengkap: [siasn.gelar_depan, siasn.nama, siasn.gelar_belakang].filter(Boolean).join(" ").trim(),
-          golongan: siasn.gol_akhir_nama || "-",
+          nama_lengkap: siasnNamaLengkap,
+          status_kepegawaian: siasnStatus,
+          golongan: siasnGol,
           pangkat: "-",
-          jabatan: siasn.jabatan_nama || "-",
-          unor: siasn.unor_nama || "-",
+          pendidikan: siasnPendidikan,
+          jabatan: siasnJabatan,
+          unit_kerja: siasnUnor,
+          unor: siasnUnor,
           unorInduk_id: null,
-          kedudukan: siasn.kedudukan_pns_nama || "-",
         },
       });
       continue;
     }
 
-    // 3. Ada di Lokal & SIASN (Bandingkan atribut)
+    // 3. Ada di Lokal & SIASN (Bandingkan hanya 6 atribut utama)
+    const localStatus = getLocalStatusKepegawaian(local, cpnsPegawaiSet, pnsPegawaiSet);
+    const siasnStatus = getSiasnStatusKepegawaian(siasn.status_cpns_pns);
+
     const localGol = local.rwt_gol?.ref_gol?.gol || "-";
     const siasnGol = siasn.gol_akhir_nama || "-";
+
+    const localPendidikan =
+      (local.rwt_pend?.pend_id && pendMap.get(local.rwt_pend.pend_id)) ||
+      local.rwt_pend?.jurusan ||
+      (local.rwt_pend?.tktPend_id && tktPendMap.get(String(local.rwt_pend.tktPend_id))) ||
+      "-";
+    const siasnPendidikan = siasn.pendidikan_nama || siasn.tingkat_pendidikan_nama || "-";
 
     const localJabatan = local.rwt_jabatan?.ref_jabatan?.nama_jabatan || "-";
     const siasnJabatan = siasn.jabatan_nama || "-";
@@ -162,41 +254,48 @@ export const buildMatchingDataset = async () => {
     const localNama = local.ta_orang?.nama || "-";
     const siasnNama = siasn.nama || "-";
 
-    const localKedudukan = kedudukanMap.get(String(local.kedudukanPns_id)) || "Aktif";
-    const siasnKedudukan = siasn.kedudukan_pns_nama || "Aktif";
+    const localNamaLengkap = [local.rwt_pend?.gd, local.ta_orang?.nama, local.rwt_pend?.gb].filter(Boolean).join(" ").trim();
+    const siasnNamaLengkap = [siasn.gelar_depan, siasn.nama, siasn.gelar_belakang].filter(Boolean).join(" ").trim();
 
     const mismatches = [];
 
-    // Cek Golongan
+    // 1. Cek Nama
+    const isNamaMatch = normStr(localNama) === normStr(siasnNama) || normStr(localNamaLengkap) === normStr(siasnNamaLengkap);
+    if (!isNamaMatch) {
+      mismatches.push("nama");
+      mismatchBreakdown.nama++;
+    }
+
+    // 2. Cek Status Kepegawaian (PNS vs CPNS)
+    if (normStr(localStatus) !== normStr(siasnStatus)) {
+      mismatches.push("status_kepegawaian");
+      mismatchBreakdown.status_kepegawaian++;
+    }
+
+    // 3. Cek Golongan
     if (normGol(localGol) !== normGol(siasnGol)) {
       mismatches.push("golongan");
       mismatchBreakdown.golongan++;
     }
 
-    // Cek Jabatan
+    // 4. Cek Pendidikan
+    if (!matchEdu(localPendidikan, siasnPendidikan)) {
+      mismatches.push("pendidikan");
+      mismatchBreakdown.pendidikan++;
+    }
+
+    // 5. Cek Jabatan
     if (normStr(localJabatan) !== normStr(siasnJabatan)) {
       mismatches.push("jabatan");
       mismatchBreakdown.jabatan++;
     }
 
-    // Cek Unit Organisasi (pencocokan parsial toleran jika unor lokal terkandung di siasn atau sebaliknya)
+    // 6. Cek Unit Kerja
     const nLocalUnor = normStr(localUnor);
     const nSiasnUnor = normStr(siasnUnor);
     if (nLocalUnor !== nSiasnUnor && !nSiasnUnor.includes(nLocalUnor) && !nLocalUnor.includes(nSiasnUnor)) {
-      mismatches.push("unor");
-      mismatchBreakdown.unor++;
-    }
-
-    // Cek Nama
-    if (normStr(localNama) !== normStr(siasnNama)) {
-      mismatches.push("nama");
-      mismatchBreakdown.nama++;
-    }
-
-    // Cek Kedudukan
-    if (normStr(localKedudukan) !== normStr(siasnKedudukan)) {
-      mismatches.push("kedudukan");
-      mismatchBreakdown.kedudukan++;
+      mismatches.push("unit_kerja");
+      mismatchBreakdown.unit_kerja++;
     }
 
     const status = mismatches.length === 0 ? "match" : "mismatch";
@@ -211,31 +310,35 @@ export const buildMatchingDataset = async () => {
         id: local.id,
         nip: local.nipBaru,
         nik: local.nik || local.ta_orang?.nik || "-",
-        nama: local.ta_orang?.nama || "-",
+        nama: localNama,
         gelar_depan: local.rwt_pend?.gd || "",
         gelar_belakang: local.rwt_pend?.gb || "",
-        nama_lengkap: [local.rwt_pend?.gd, local.ta_orang?.nama, local.rwt_pend?.gb].filter(Boolean).join(" ").trim(),
+        nama_lengkap: localNamaLengkap,
+        status_kepegawaian: localStatus,
         golongan: localGol,
         pangkat: local.rwt_gol?.ref_gol?.pangkat || "-",
+        pendidikan: localPendidikan,
         jabatan: localJabatan,
+        unit_kerja: localUnor,
         unor: localUnor,
         unorInduk_id: local.rwt_jabatan?.unorInduk_id || null,
-        kedudukan: localKedudukan,
       },
       siasn: {
         id: siasn.id,
         nip: repository.cleanNip(siasn.nip_baru),
         nik: siasn.nik ? String(siasn.nik).replace(/[^0-9]/g, "") : "-",
-        nama: siasn.nama || "-",
+        nama: siasnNama,
         gelar_depan: siasn.gelar_depan || "",
         gelar_belakang: siasn.gelar_belakang || "",
-        nama_lengkap: [siasn.gelar_depan, siasn.nama, siasn.gelar_belakang].filter(Boolean).join(" ").trim(),
+        nama_lengkap: siasnNamaLengkap,
+        status_kepegawaian: siasnStatus,
         golongan: siasnGol,
         pangkat: "-",
+        pendidikan: siasnPendidikan,
         jabatan: siasnJabatan,
+        unit_kerja: siasnUnor,
         unor: siasnUnor,
         unorInduk_id: null,
-        kedudukan: siasnKedudukan,
       },
     });
   }
@@ -286,18 +389,26 @@ export const getMatchingList = async (query = {}) => {
 
   // 2. Filter Tipe Mismatch
   if (mismatch_type && mismatch_type !== "all") {
-    filtered = filtered.filter((r) => r.mismatches.includes(mismatch_type));
+    const aliasMap = {
+      unor: "unit_kerja",
+      status_pns: "status_kepegawaian",
+    };
+    const targetType = aliasMap[mismatch_type] || mismatch_type;
+    filtered = filtered.filter((r) => r.mismatches.includes(targetType) || r.mismatches.includes(mismatch_type));
   }
 
-  // 3. Filter Search (NIP, Nama Lokal, Nama SIASN)
+  // 3. Filter Search (NIP, Nama, Unit Kerja, Pendidikan, Jabatan)
   if (search && search.trim()) {
     const q = search.trim().toLowerCase();
     filtered = filtered.filter((r) => {
       const nipMatch = r.nip.includes(q);
       const localNameMatch = r.local?.nama?.toLowerCase().includes(q) || r.local?.nama_lengkap?.toLowerCase().includes(q);
       const siasnNameMatch = r.siasn?.nama?.toLowerCase().includes(q) || r.siasn?.nama_lengkap?.toLowerCase().includes(q);
-      const unorMatch = r.local?.unor?.toLowerCase().includes(q) || r.siasn?.unor?.toLowerCase().includes(q);
-      return nipMatch || localNameMatch || siasnNameMatch || unorMatch;
+      const unorMatch = r.local?.unit_kerja?.toLowerCase().includes(q) || r.siasn?.unit_kerja?.toLowerCase().includes(q);
+      const pendMatch = r.local?.pendidikan?.toLowerCase().includes(q) || r.siasn?.pendidikan?.toLowerCase().includes(q);
+      const jabMatch = r.local?.jabatan?.toLowerCase().includes(q) || r.siasn?.jabatan?.toLowerCase().includes(q);
+      const statusMatch = r.local?.status_kepegawaian?.toLowerCase().includes(q) || r.siasn?.status_kepegawaian?.toLowerCase().includes(q);
+      return nipMatch || localNameMatch || siasnNameMatch || unorMatch || pendMatch || jabMatch || statusMatch;
     });
   }
 
@@ -343,73 +454,47 @@ export const getMatchingDetail = async (nip) => {
     throw new AppError("Data pegawai tidak ditemukan di Lokal maupun SIASN", 404);
   }
 
-  const { agamaMap, kawinMap, kedudukanMap, tktPendMap, unorMap } = refMaps;
+  const { unorMap, pendMap, tktPendMap, pnsPegawaiSet, cpnsPegawaiSet } = refMaps;
 
-  // Format Field Comparison
-  const formatDate = (d) => {
-    if (!d) return "-";
-    if (typeof d === "string") return d;
-    const date = new Date(d);
-    if (isNaN(date.getTime())) return "-";
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
+  // Local values
+  const localStatus = local ? getLocalStatusKepegawaian(local, cpnsPegawaiSet, pnsPegawaiSet) : "-";
+  const localGol = local?.rwt_gol?.ref_gol?.gol || "-";
+  const localJabatan = local?.rwt_jabatan?.ref_jabatan?.nama_jabatan || "-";
+  const localUnor = local ? getLocalUnorName(local.rwt_jabatan, unorMap) : "-";
+  const localPendidikan =
+    (local?.rwt_pend?.pend_id && pendMap.get(local.rwt_pend.pend_id)) ||
+    local?.rwt_pend?.jurusan ||
+    (local?.rwt_pend?.tktPend_id && tktPendMap.get(String(local.rwt_pend.tktPend_id))) ||
+    "-";
+  const localNama = local?.ta_orang?.nama || "-";
   const localNamaLengkap = local ? [local.rwt_pend?.gd, local.ta_orang?.nama, local.rwt_pend?.gb].filter(Boolean).join(" ").trim() : "-";
+
+  // SIASN values
+  const siasnStatus = siasn ? getSiasnStatusKepegawaian(siasn.status_cpns_pns) : "-";
+  const siasnGol = siasn?.gol_akhir_nama || "-";
+  const siasnJabatan = siasn?.jabatan_nama || "-";
+  const siasnUnor = siasn?.unor_nama || "-";
+  const siasnPendidikan = siasn?.pendidikan_nama || siasn?.tingkat_pendidikan_nama || "-";
+  const siasnNama = siasn?.nama || "-";
   const siasnNamaLengkap = siasn ? [siasn.gelar_depan, siasn.nama, siasn.gelar_belakang].filter(Boolean).join(" ").trim() : "-";
 
-  const localAgama = local?.ta_orang?.agama_id ? (agamaMap.get(String(local.ta_orang.agama_id)) || "-") : "-";
-  const siasnAgama = siasn?.agama_nama || "-";
-
-  const localKawin = local?.ta_orang?.kawin_id ? (kawinMap.get(String(local.ta_orang.kawin_id)) || "-") : "-";
-  const siasnKawin = siasn?.jenis_kawin_nama || "-";
-
-  const localKedudukan = local?.kedudukanPns_id ? (kedudukanMap.get(String(local.kedudukanPns_id)) || "Aktif") : "-";
-  const siasnKedudukan = siasn?.kedudukan_pns_nama || "-";
-
-  const localGol = local?.rwt_gol?.ref_gol?.gol || "-";
-  const siasnGol = siasn?.gol_akhir_nama || "-";
-
-  const localTmtGol = formatDate(local?.rwt_gol?.tmtSk);
-  const siasnTmtGol = siasn?.tmt_golongan || "-";
-
-  const localJabatan = local?.rwt_jabatan?.ref_jabatan?.nama_jabatan || "-";
-  const siasnJabatan = siasn?.jabatan_nama || "-";
-
-  const localTmtJabatan = formatDate(local?.rwt_jabatan?.tmtSk);
-  const siasnTmtJabatan = siasn?.tmt_jabatan || "-";
-
-  const localUnor = local ? getLocalUnorName(local.rwt_jabatan, unorMap) : "-";
-  const siasnUnor = siasn?.unor_nama || "-";
-
-  const localPendidikan = local?.rwt_pend?.jurusan || local?.rwt_pend?.nmSekolah || "-";
-  const siasnPendidikan = siasn?.pendidikan_nama || "-";
-
-  const localTktPend = local?.rwt_pend?.tktPend_id ? (tktPendMap.get(String(local.rwt_pend.tktPend_id)) || "-") : "-";
-  const siasnTktPend = siasn?.tingkat_pendidikan_nama || "-";
+  const isNamaMatch = (normStr(localNama) === normStr(siasnNama)) || (normStr(localNamaLengkap) === normStr(siasnNamaLengkap));
+  const isGolMatch = normGol(localGol) === normGol(siasnGol);
+  const isJabMatch = normStr(localJabatan) === normStr(siasnJabatan);
+  const nLocalUnor = normStr(localUnor);
+  const nSiasnUnor = normStr(siasnUnor);
+  const isUnorMatch = nLocalUnor === nSiasnUnor || nSiasnUnor.includes(nLocalUnor) || nLocalUnor.includes(nSiasnUnor);
+  const isPendMatch = matchEdu(localPendidikan, siasnPendidikan);
+  const isStatusMatch = normStr(localStatus) === normStr(siasnStatus);
 
   const comparisonFields = [
     { label: "NIP", local: local?.nipBaru || "-", siasn: siasn ? repository.cleanNip(siasn.nip_baru) : "-", is_same: repository.cleanNip(local?.nipBaru) === repository.cleanNip(siasn?.nip_baru) },
-    { label: "NIK", local: local?.nik || local?.ta_orang?.nik || "-", siasn: siasn?.nik ? String(siasn.nik).replace(/[^0-9]/g, "") : "-", is_same: normStr(local?.nik) === normStr(siasn?.nik) },
-    { label: "Nama Lengkap", local: localNamaLengkap, siasn: siasnNamaLengkap, is_same: normStr(localNamaLengkap) === normStr(siasnNamaLengkap) },
-    { label: "Tempat Lahir", local: local?.ta_orang?.t4Lhr || "-", siasn: siasn?.tempat_lahir || "-", is_same: normStr(local?.ta_orang?.t4Lhr) === normStr(siasn?.tempat_lahir) },
-    { label: "Tanggal Lahir", local: formatDate(local?.ta_orang?.tglLhr), siasn: siasn?.tanggal_lahir || "-", is_same: formatDate(local?.ta_orang?.tglLhr) === (siasn?.tanggal_lahir || "-") },
-    { label: "Agama", local: localAgama, siasn: siasnAgama, is_same: normStr(localAgama) === normStr(siasnAgama) },
-    { label: "Status Perkawinan", local: localKawin, siasn: siasnKawin, is_same: normStr(localKawin) === normStr(siasnKawin) },
-    { label: "Kedudukan PNS", local: localKedudukan, siasn: siasnKedudukan, is_same: normStr(localKedudukan) === normStr(siasnKedudukan) },
-    { label: "Golongan / Pangkat", local: `${localGol} (${local?.rwt_gol?.ref_gol?.pangkat || '-'})`, siasn: siasnGol, is_same: normGol(localGol) === normGol(siasnGol) },
-    { label: "TMT Golongan", local: localTmtGol, siasn: siasnTmtGol, is_same: localTmtGol === siasnTmtGol },
-    { label: "Jabatan", local: localJabatan, siasn: siasnJabatan, is_same: normStr(localJabatan) === normStr(siasnJabatan) },
-    { label: "TMT Jabatan", local: localTmtJabatan, siasn: siasnTmtJabatan, is_same: localTmtJabatan === siasnTmtJabatan },
-    { label: "Unit Organisasi (OPD)", local: localUnor, siasn: siasnUnor, is_same: normStr(localUnor) === normStr(siasnUnor) },
-    { label: "Tingkat Pendidikan", local: localTktPend, siasn: siasnTktPend, is_same: normStr(localTktPend) === normStr(siasnTktPend) },
-    { label: "Pendidikan / Jurusan", local: localPendidikan, siasn: siasnPendidikan, is_same: normStr(localPendidikan) === normStr(siasnPendidikan) },
-    { label: "Tahun Lulus", local: local?.rwt_pend?.thnLulus ? String(local.rwt_pend.thnLulus) : "-", siasn: siasn?.tahun_lulus ? String(siasn.tahun_lulus) : "-", is_same: String(local?.rwt_pend?.thnLulus || '') === String(siasn?.tahun_lulus || '') },
-    { label: "Nomor HP", local: local?.ta_orang?.no_hp || "-", siasn: siasn?.nomor_hp || "-", is_same: normStr(local?.ta_orang?.no_hp) === normStr(siasn?.nomor_hp) },
-    { label: "Email", local: local?.ta_orang?.email || "-", siasn: siasn?.email || "-", is_same: normStr(local?.ta_orang?.email) === normStr(siasn?.email) },
-    { label: "NPWP", local: local?.ta_orang?.npwp || "-", siasn: siasn?.npwp_nomor || "-", is_same: normStr(local?.ta_orang?.npwp) === normStr(siasn?.npwp_nomor) },
+    { label: "Nama Pegawai", local: localNamaLengkap, siasn: siasnNamaLengkap, is_same: isNamaMatch },
+    { label: "Status Kepegawaian", local: localStatus, siasn: siasnStatus, is_same: isStatusMatch },
+    { label: "Golongan", local: localGol, siasn: siasnGol, is_same: isGolMatch },
+    { label: "Pendidikan", local: localPendidikan, siasn: siasnPendidikan, is_same: isPendMatch },
+    { label: "Jabatan", local: localJabatan, siasn: siasnJabatan, is_same: isJabMatch },
+    { label: "Unit Kerja", local: localUnor, siasn: siasnUnor, is_same: isUnorMatch },
   ];
 
   return {
@@ -423,7 +508,7 @@ export const getMatchingDetail = async (nip) => {
 };
 
 /**
- * Generate Excel buffer untuk rekapitulasi data matching
+ * Generate Excel buffer untuk rekapitulasi data matching 6 atribut
  */
 export const generateMatchingExcel = async (query = {}) => {
   const result = await getMatchingList({ ...query, page: 1, limit: 100000 });
@@ -438,60 +523,76 @@ export const generateMatchingExcel = async (query = {}) => {
   });
 
   // Judul Laporan
-  worksheet.mergeCells("A1:K1");
+  worksheet.mergeCells("A1:O1");
   const titleCell = worksheet.getCell("A1");
   titleCell.value = "LAPORAN DATA MATCHING (LOKAL VS SIASN BKN)";
   titleCell.font = { name: "Arial", size: 14, bold: true, color: { argb: "FF1E3A8A" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
   worksheet.getRow(1).height = 30;
 
-  worksheet.mergeCells("A2:K2");
+  worksheet.mergeCells("A2:O2");
   const subtitleCell = worksheet.getCell("A2");
   subtitleCell.value = `Tanggal Export: ${new Date().toLocaleDateString("id-ID", { dateStyle: "long" })} | Total: ${records.length} Pegawai`;
   subtitleCell.font = { name: "Arial", size: 10, italic: true, color: { argb: "FF6B7280" } };
   subtitleCell.alignment = { vertical: "middle", horizontal: "center" };
   worksheet.getRow(2).height = 20;
 
-  // Header Baris 4 & 5 (Tabel Komparasi)
+  // Header Baris 4 & 5 (Tabel Komparasi 6 Atribut)
   worksheet.mergeCells("A4:A5");
   worksheet.getCell("A4").value = "NO";
+
   worksheet.mergeCells("B4:B5");
   worksheet.getCell("B4").value = "NIP";
+
   worksheet.mergeCells("C4:D4");
   worksheet.getCell("C4").value = "NAMA LENGKAP";
   worksheet.getCell("C5").value = "LOKAL";
   worksheet.getCell("D5").value = "SIASN";
 
   worksheet.mergeCells("E4:F4");
-  worksheet.getCell("E4").value = "GOLONGAN";
+  worksheet.getCell("E4").value = "STATUS KEPEGAWAIAN";
   worksheet.getCell("E5").value = "LOKAL";
   worksheet.getCell("F5").value = "SIASN";
 
   worksheet.mergeCells("G4:H4");
-  worksheet.getCell("G4").value = "JABATAN";
+  worksheet.getCell("G4").value = "GOLONGAN";
   worksheet.getCell("G5").value = "LOKAL";
   worksheet.getCell("H5").value = "SIASN";
 
   worksheet.mergeCells("I4:J4");
-  worksheet.getCell("I4").value = "UNIT ORGANISASI";
+  worksheet.getCell("I4").value = "PENDIDIKAN";
   worksheet.getCell("I5").value = "LOKAL";
   worksheet.getCell("J5").value = "SIASN";
 
-  worksheet.mergeCells("K4:K5");
-  worksheet.getCell("K4").value = "STATUS MATCHING";
+  worksheet.mergeCells("K4:L4");
+  worksheet.getCell("K4").value = "JABATAN";
+  worksheet.getCell("K5").value = "LOKAL";
+  worksheet.getCell("L5").value = "SIASN";
+
+  worksheet.mergeCells("M4:N4");
+  worksheet.getCell("M4").value = "UNIT KERJA";
+  worksheet.getCell("M5").value = "LOKAL";
+  worksheet.getCell("N5").value = "SIASN";
+
+  worksheet.mergeCells("O4:O5");
+  worksheet.getCell("O4").value = "STATUS MATCHING";
 
   // Lebar Kolom
   worksheet.columns = [
     { key: "no", width: 6 },
     { key: "nip", width: 22 },
-    { key: "nama_local", width: 30 },
-    { key: "nama_siasn", width: 30 },
+    { key: "nama_local", width: 28 },
+    { key: "nama_siasn", width: 28 },
+    { key: "status_local", width: 14 },
+    { key: "status_siasn", width: 14 },
     { key: "gol_local", width: 12 },
     { key: "gol_siasn", width: 12 },
-    { key: "jab_local", width: 35 },
-    { key: "jab_siasn", width: 35 },
-    { key: "unor_local", width: 35 },
-    { key: "unor_siasn", width: 35 },
+    { key: "pend_local", width: 30 },
+    { key: "pend_siasn", width: 30 },
+    { key: "jab_local", width: 32 },
+    { key: "jab_siasn", width: 32 },
+    { key: "unor_local", width: 32 },
+    { key: "unor_siasn", width: 32 },
     { key: "status", width: 22 },
   ];
 
@@ -528,12 +629,16 @@ export const generateMatchingExcel = async (query = {}) => {
       r.nip,
       r.local?.nama_lengkap || "-",
       r.siasn?.nama_lengkap || "-",
+      r.local?.status_kepegawaian || "-",
+      r.siasn?.status_kepegawaian || "-",
       r.local?.golongan || "-",
       r.siasn?.golongan || "-",
+      r.local?.pendidikan || "-",
+      r.siasn?.pendidikan || "-",
       r.local?.jabatan || "-",
       r.siasn?.jabatan || "-",
-      r.local?.unor || "-",
-      r.siasn?.unor || "-",
+      r.local?.unit_kerja || r.local?.unor || "-",
+      r.siasn?.unit_kerja || r.siasn?.unor || "-",
       statusText,
     ]);
 
@@ -546,7 +651,7 @@ export const generateMatchingExcel = async (query = {}) => {
         bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
         right: { style: "thin", color: { argb: "FFE5E7EB" } },
       };
-      if (colNum === 1 || colNum === 2 || colNum === 5 || colNum === 6 || colNum === 11) {
+      if (colNum === 1 || colNum === 2 || colNum === 5 || colNum === 6 || colNum === 7 || colNum === 8 || colNum === 15) {
         cell.alignment = { vertical: "middle", horizontal: "center" };
       } else {
         cell.alignment = { vertical: "middle", horizontal: "left" };

@@ -140,9 +140,22 @@ export const getAllEselon = async () => {
 const saveOrUpdateJabatan = async (targetJabId, nm_jab, extraData = {}) => {
   const trimmedJab = nm_jab ? nm_jab.trim() : "";
 
+  // Otomatis sinkronkan kategori berdasarkan jenjang, eselon, atau jenis jabatan
+  let derivedKategori = extraData.kategori;
+  const jenjangNum = extraData.jenjang_jab_id ? Number(extraData.jenjang_jab_id) : null;
+  if (jenjangNum && [1, 2, 6, 7, 8].includes(jenjangNum)) {
+    derivedKategori = 'STRUKTURAL';
+  } else if (jenjangNum && [4, 5].includes(jenjangNum)) {
+    derivedKategori = 'FUNGSIONAL';
+  } else if (jenjangNum === 3) {
+    derivedKategori = 'PELAKSANA';
+  } else if (extraData.eselon_id) {
+    derivedKategori = 'STRUKTURAL';
+  }
+
   const jabData = {
     ...(trimmedJab ? { nama_jabatan: trimmedJab } : {}),
-    ...(extraData.kategori ? { kategori: extraData.kategori } : {}),
+    ...(derivedKategori ? { kategori: derivedKategori } : {}),
     ...(extraData.eselon_id !== undefined ? { eselon_id: extraData.eselon_id || null } : {}),
     ...(extraData.jns_jab_id !== undefined ? { jns_jab_id: extraData.jns_jab_id || null } : {}),
     ...(extraData.jenjang_jab_id !== undefined ? { jenjang_jab_id: extraData.jenjang_jab_id ? BigInt(extraData.jenjang_jab_id) : null } : {}),

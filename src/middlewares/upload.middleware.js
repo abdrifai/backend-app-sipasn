@@ -143,4 +143,28 @@ export const uploadDokumenPendidikan = multer({
   { name: "dokumen_transkrip", maxCount: 1 },
 ]);
 
+// Konfigurasi storage dokumen peraturan
+const peraturanStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = "storage/dokumen/peraturan";
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const safeKategori = (req.body?.kategori || "umum").toLowerCase().replace(/[^a-z0-9]/g, "-");
+    cb(null, `peraturan-${safeKategori}-${Date.now()}${ext}`);
+  },
+});
+
+export const uploadDokumenPeraturan = multer({
+  storage: peraturanStorage,
+  fileFilter: dokumenFileFilter,
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB
+  },
+});
+
 

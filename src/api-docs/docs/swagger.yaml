@@ -37,6 +37,8 @@ tags:
     description: Master data referensi tingkat dan jenis hukuman disiplin
   - name: Ref Instansi
     description: Master data referensi instansi pemerintah
+  - name: Ref Arsip Peraturan
+    description: Master data referensi arsip peraturan, regulasi SOTK, jabatan, disiplin, dan kebijakan ASN
   - name: DB Analysis
     description: Endpoint diagnostik dan analisis data database
   - name: Import PNS
@@ -2797,6 +2799,229 @@ paths:
           $ref: '#/components/responses/SuccessResponse'
 
   # ==========================================
+  # REF ARSIP PERATURAN
+  # ==========================================
+  /api/ref-peraturan:
+    get:
+      tags:
+        - Ref Arsip Peraturan
+      summary: Daftar Arsip Peraturan
+      description: Mengambil daftar arsip peraturan dengan filter pencarian, kategori, jenis peraturan, tahun, dan status keberlakuan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Kata kunci pencarian nomor, judul, atau tentang
+          schema:
+            type: string
+        - name: kategori
+          in: query
+          description: Kategori peraturan (SOTK, JABATAN, KEPEGAWAIAN, dll)
+          schema:
+            type: string
+        - name: jenis_peraturan
+          in: query
+          description: Jenis peraturan (UU, PP, PERPRES, PERMENPAN, PERBUP, dll)
+          schema:
+            type: string
+        - name: tahun
+          in: query
+          description: Tahun peraturan
+          schema:
+            type: integer
+        - name: status_berlaku
+          in: query
+          description: Status keberlakuan (BERLAKU, DICABUT, MENGUBAH)
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+
+    post:
+      tags:
+        - Ref Arsip Peraturan
+      summary: Tambah Arsip Peraturan
+      description: Menambahkan peraturan baru ke master referensi beserta lampiran file PDF.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - nomor_peraturan
+                - judul
+                - kategori
+                - jenis_peraturan
+                - tahun
+              properties:
+                nomor_peraturan:
+                  type: string
+                  example: Perbup No. 12 Tahun 2023
+                judul:
+                  type: string
+                  example: Kedudukan, Susunan Organisasi, Tugas dan Tata Kerja Dinas Kesehatan
+                kategori:
+                  type: string
+                  example: SOTK
+                jenis_peraturan:
+                  type: string
+                  example: PERBUP
+                tahun:
+                  type: integer
+                  example: 2023
+                tgl_penetapan:
+                  type: string
+                  format: date
+                tgl_berlaku:
+                  type: string
+                  format: date
+                status_berlaku:
+                  type: string
+                  enum: [BERLAKU, DICABUT, MENGUBAH]
+                  default: BERLAKU
+                peraturan_terkait:
+                  type: string
+                tentang:
+                  type: string
+                keterangan:
+                  type: string
+                file_peraturan:
+                  type: string
+                  format: binary
+                  description: File dokumen PDF peraturan (maksimal 25MB)
+      responses:
+        '201':
+          $ref: '#/components/responses/SuccessResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '422':
+          $ref: '#/components/responses/ValidationErrorResponse'
+
+  /api/ref-peraturan/filter-options:
+    get:
+      tags:
+        - Ref Arsip Peraturan
+      summary: Opsi Filter Peraturan
+      description: Mengambil rekap daftar kategori dan jenis peraturan beserta jumlah arsipnya.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+
+  /api/ref-peraturan/{id}:
+    get:
+      tags:
+        - Ref Arsip Peraturan
+      summary: Detail Arsip Peraturan
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+
+    put:
+      tags:
+        - Ref Arsip Peraturan
+      summary: Perbarui Arsip Peraturan
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                nomor_peraturan:
+                  type: string
+                judul:
+                  type: string
+                kategori:
+                  type: string
+                jenis_peraturan:
+                  type: string
+                tahun:
+                  type: integer
+                tgl_penetapan:
+                  type: string
+                  format: date
+                tgl_berlaku:
+                  type: string
+                  format: date
+                status_berlaku:
+                  type: string
+                  enum: [BERLAKU, DICABUT, MENGUBAH]
+                peraturan_terkait:
+                  type: string
+                tentang:
+                  type: string
+                keterangan:
+                  type: string
+                file_peraturan:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+
+    delete:
+      tags:
+        - Ref Arsip Peraturan
+      summary: Hapus Arsip Peraturan (Soft Delete)
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+
+  # ==========================================
   # DB ANALYSIS
   # ==========================================
   /api/db-analysis:
@@ -3068,7 +3293,7 @@ paths:
           name: mismatch_type
           schema:
             type: string
-            enum: [all, golongan, jabatan, unor, nama, kedudukan]
+            enum: [all, nama, status_kepegawaian, golongan, pendidikan, jabatan, unit_kerja]
             default: all
         - in: query
           name: search

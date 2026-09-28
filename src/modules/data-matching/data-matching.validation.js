@@ -1,10 +1,12 @@
 import Joi from "joi";
 
+const validMismatchTypes = ["all", "nama", "golongan", "pendidikan", "jabatan", "unit_kerja", "unor", "status_kepegawaian", "kedudukan"];
+
 export const getMatchingListSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(15),
   status: Joi.string().valid("all", "match", "mismatch", "only_local", "only_siasn").default("all"),
-  mismatch_type: Joi.string().valid("all", "golongan", "jabatan", "unor", "nama", "kedudukan").default("all"),
+  mismatch_type: Joi.string().valid(...validMismatchTypes).default("all"),
   search: Joi.string().allow("").default(""),
   unorInduk_id: Joi.string().allow("").default(""),
 });
@@ -15,7 +17,7 @@ export const getMatchingDetailSchema = Joi.object({
 
 export const exportMatchingSchema = Joi.object({
   status: Joi.string().valid("all", "match", "mismatch", "only_local", "only_siasn").default("all"),
-  mismatch_type: Joi.string().valid("all", "golongan", "jabatan", "unor", "nama", "kedudukan").default("all"),
+  mismatch_type: Joi.string().valid(...validMismatchTypes).default("all"),
   search: Joi.string().allow("").default(""),
   unorInduk_id: Joi.string().allow("").default(""),
 });
