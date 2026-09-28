@@ -70,9 +70,9 @@ const getSiasnStatusKepegawaian = (statusCpnsPns) => {
 /**
  * Dapatkan status kepegawaian (PNS / CPNS) Lokal
  */
-const getLocalStatusKepegawaian = (pegawai, cpnsSet, pnsSet) => {
+const getLocalStatusKepegawaian = (pegawai, cpnsSet = new Set(), pnsSet = new Set()) => {
   if (!pegawai) return "-";
-  const isCpns = pegawai.spns_id === 1 || (cpnsSet.has(pegawai.id) && !pnsSet.has(pegawai.id));
+  const isCpns = pegawai.spns_id === 1 || ((cpnsSet?.has(pegawai.id)) && !(pnsSet?.has(pegawai.id)));
   return isCpns ? "CPNS" : "PNS";
 };
 

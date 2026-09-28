@@ -41,6 +41,18 @@ const defaultSelect = {
       status_berlaku: true,
     },
   },
+  direferensikan_oleh: {
+    where: { is_deleted: false },
+    select: {
+      id: true,
+      nomor_peraturan: true,
+      judul: true,
+      jenis_peraturan: true,
+      tahun: true,
+      tipe_relasi: true,
+      status_berlaku: true,
+    },
+  },
 };
 
 export const findAll = async ({

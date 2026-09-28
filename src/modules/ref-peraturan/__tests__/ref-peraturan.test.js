@@ -100,6 +100,26 @@ describe("ref-peraturan.service", () => {
       expect(result.id).toBe("new-id");
       expect(result.nomor_peraturan).toBe("Perbup No. 12 Tahun 2023");
     });
+
+    it("harus otomatis mengubah status peraturan target menjadi DIUBAH_OLEH jika tipe_relasi adalah MENGUBAH", async () => {
+      mockRepository.findByNomor.mockResolvedValue(null);
+      mockRepository.create.mockImplementation((payload) => Promise.resolve({ id: "new-peraturan", ...payload }));
+      mockRepository.update.mockResolvedValue({ id: "target-old", status_berlaku: "DIUBAH_OLEH" });
+
+      const body = {
+        nomor_peraturan: "Perbup No. 2 Tahun 2024",
+        judul: "Perubahan SOTK",
+        kategori: "SOTK",
+        jenis_peraturan: "PERBUP",
+        tahun: "2024",
+        peraturan_terkait_id: "target-old",
+        tipe_relasi: "MENGUBAH",
+      };
+
+      await service.createPeraturan(body, null, "1");
+
+      expect(mockRepository.update).toHaveBeenCalledWith("target-old", { status_berlaku: "DIUBAH_OLEH" });
+    });
   });
 
   describe("updatePeraturan", () => {
@@ -109,12 +129,23 @@ describe("ref-peraturan.service", () => {
       await expect(service.updatePeraturan("uuid-x", { judul: "New Title" })).rejects.toThrow(AppError);
     });
 
-    it("harus berhasil memperbarui data peraturan", async () => {
-      mockRepository.findById.mockResolvedValue({ id: "uuid-1", nomor_peraturan: "Perbup No. 12" });
+    it("harus berhasil memperbarui data peraturan dan menyinkronkan status target menjadi DIUBAH_OLEH", async () => {
+      mockRepository.findById.mockResolvedValue({
+        id: "uuid-1",
+        nomor_peraturan: "Perbup No. 12",
+        peraturan_terkait_id: null,
+        tipe_relasi: null,
+      });
       mockRepository.update.mockResolvedValue({ id: "uuid-1", judul: "Updated Title" });
 
-      const result = await service.updatePeraturan("uuid-1", { judul: "Updated Title" });
+      const result = await service.updatePeraturan("uuid-1", {
+        judul: "Updated Title",
+        peraturan_terkait_id: "target-old-2",
+        tipe_relasi: "MENGUBAH",
+      });
+
       expect(result.judul).toBe("Updated Title");
+      expect(mockRepository.update).toHaveBeenCalledWith("target-old-2", { status_berlaku: "DIUBAH_OLEH" });
     });
   });
 

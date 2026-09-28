@@ -201,14 +201,12 @@ export const createPeraturan = async (body, file, userId = null) => {
 
   const newPeraturan = await repo.create(payload);
 
-  // Jika tipe relasi adalah MENCABUT dan terdapat peraturan_terkait_id, ubah status target menjadi DICABUT
-  if (payload.tipe_relasi === "MENCABUT" && payload.peraturan_terkait_id) {
-    try {
-      await repo.update(payload.peraturan_terkait_id, { status_berlaku: "DICABUT" });
-      logger.info(`Peraturan ${payload.peraturan_terkait_id} otomatis ditandai DICABUT`);
-    } catch (e) {
-      logger.warn("Gagal memperbarui status peraturan terkait ke DICABUT", { error: e.message });
-    }
+  // Jika tipe relasi adalah MENGUBAH atau MENCABUT dan terdapat target, sinkronkan status target secara otomatis
+  const isMengubah = payload.tipe_relasi === "MENGUBAH" || payload.status_berlaku === "MENGUBAH";
+  const isMencabut = payload.tipe_relasi === "MENCABUT" || payload.status_berlaku === "DICABUT";
+  if (payload.peraturan_terkait_id && (isMengubah || isMencabut)) {
+    const actionType = isMencabut ? "MENCABUT" : "MENGUBAH";
+    await syncTargetRegulationStatus(payload.peraturan_terkait_id, actionType);
   }
 
   logger.info("Berhasil membuat arsip peraturan baru", { id: newPeraturan.id, nomor: newPeraturan.nomor_peraturan });
@@ -270,13 +268,27 @@ export const updatePeraturan = async (id, body, file) => {
 
   const updated = await repo.update(id, payload);
 
-  // Jika tipe relasi diupdate menjadi MENCABUT dan terdapat target, tandai target DICABUT
-  if (payload.tipe_relasi === "MENCABUT" && payload.peraturan_terkait_id) {
-    try {
-      await repo.update(payload.peraturan_terkait_id, { status_berlaku: "DICABUT" });
-    } catch (e) {
-      logger.warn("Gagal memperbarui status peraturan terkait ke DICABUT", { error: e.message });
-    }
+  const oldTargetId = existing.peraturan_terkait_id;
+  const newTargetId = payload.peraturan_terkait_id !== undefined ? payload.peraturan_terkait_id : oldTargetId;
+  const oldTipeRelasi = existing.tipe_relasi;
+  const newTipeRelasi = payload.tipe_relasi !== undefined ? payload.tipe_relasi : oldTipeRelasi;
+  const newStatusBerlaku = payload.status_berlaku !== undefined ? payload.status_berlaku : existing.status_berlaku;
+
+  const isNowMengubah = newTipeRelasi === "MENGUBAH" || newStatusBerlaku === "MENGUBAH";
+  const isNowMencabut = newTipeRelasi === "MENCABUT" || newStatusBerlaku === "DICABUT";
+  const wasMengubahOrMencabut = oldTipeRelasi === "MENGUBAH" || oldTipeRelasi === "MENCABUT" || existing.status_berlaku === "MENGUBAH" || existing.status_berlaku === "DICABUT";
+
+  // Jika target berganti atau relasi dicabut/diubah menjadi bukan mengubah/mencabut, pulihkan target lama
+  if (oldTargetId && oldTargetId !== newTargetId) {
+    await restoreTargetRegulationStatusIfNeeded(oldTargetId, id);
+  } else if (oldTargetId && wasMengubahOrMencabut && !isNowMengubah && !isNowMencabut) {
+    await restoreTargetRegulationStatusIfNeeded(oldTargetId, id);
+  }
+
+  // Terapkan status pada target baru jika mengubah atau mencabut
+  if (newTargetId && (isNowMengubah || isNowMencabut)) {
+    const actionType = isNowMencabut ? "MENCABUT" : "MENGUBAH";
+    await syncTargetRegulationStatus(newTargetId, actionType);
   }
 
   logger.info("Berhasil memperbarui arsip peraturan", { id });
@@ -293,8 +305,59 @@ export const deletePeraturan = async (id) => {
   }
 
   const result = await repo.softDelete(id);
+
+  // Jika peraturan yang dihapus sebelumnya mengubah/mencabut peraturan lain, pulihkan statusnya
+  if (existing.peraturan_terkait_id && (existing.tipe_relasi === "MENGUBAH" || existing.tipe_relasi === "MENCABUT")) {
+    await restoreTargetRegulationStatusIfNeeded(existing.peraturan_terkait_id, id);
+  }
+
   logger.info("Berhasil menghapus (soft delete) arsip peraturan", { id });
   return result;
+};
+
+/**
+ * Helper: Sinkronisasi status peraturan target
+ */
+const syncTargetRegulationStatus = async (targetId, tipeRelasi) => {
+  if (!targetId || !tipeRelasi) return;
+  try {
+    if (tipeRelasi === "MENGUBAH") {
+      await repo.update(targetId, { status_berlaku: "DIUBAH_OLEH" });
+      logger.info(`Peraturan target ${targetId} otomatis diubah statusnya menjadi DIUBAH_OLEH`);
+    } else if (tipeRelasi === "MENCABUT") {
+      await repo.update(targetId, { status_berlaku: "DICABUT" });
+      logger.info(`Peraturan target ${targetId} otomatis diubah statusnya menjadi DICABUT`);
+    }
+  } catch (err) {
+    logger.warn(`Gagal sinkronisasi status peraturan target ${targetId}`, { error: err.message });
+  }
+};
+
+/**
+ * Helper: Memulihkan status peraturan target jika relasi diubah atau dihapus
+ */
+const restoreTargetRegulationStatusIfNeeded = async (targetId, currentRegulationId = null) => {
+  if (!targetId) return;
+  try {
+    const target = await repo.findById(targetId);
+    if (!target) return;
+
+    // Cek apakah masih ada peraturan aktif lain yang mengubah atau mencabut target ini
+    const remainingRelations = (target.direferensikan_oleh || []).filter(
+      (ref) => ref.id !== currentRegulationId && (ref.tipe_relasi === "MENCABUT" || ref.tipe_relasi === "MENGUBAH")
+    );
+
+    if (remainingRelations.length === 0) {
+      await repo.update(targetId, { status_berlaku: "BERLAKU" });
+      logger.info(`Peraturan target ${targetId} dipulihkan statusnya menjadi BERLAKU`);
+    } else {
+      const hasRevoke = remainingRelations.some((r) => r.tipe_relasi === "MENCABUT");
+      const newStatus = hasRevoke ? "DICABUT" : "DIUBAH_OLEH";
+      await repo.update(targetId, { status_berlaku: newStatus });
+    }
+  } catch (err) {
+    logger.warn(`Gagal memulihkan status peraturan target ${targetId}`, { error: err.message });
+  }
 };
 
 /**
