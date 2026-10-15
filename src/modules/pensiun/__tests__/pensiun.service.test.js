@@ -16,6 +16,12 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
   },
+  ta_arsip: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
   $transaction: jest.fn((callback) => callback(mockPrisma)),
   $queryRaw: jest.fn(),
 };
@@ -103,6 +109,7 @@ describe("pensiun.service", () => {
       mockPrisma.rwt_perubahan_data_induk.count.mockResolvedValue(1);
       mockPrisma.ta_pegawai.findMany.mockResolvedValue(mockPegawaiList);
       mockPrisma.ref_kedudukanpns.findMany.mockResolvedValue(mockKedudukanList);
+      mockPrisma.ta_arsip.findMany.mockResolvedValue([]);
 
       const result = await pensiunService.getAllPensiun({ page: 1, limit: 10 });
 
@@ -157,11 +164,60 @@ describe("pensiun.service", () => {
       mockPrisma.rwt_perubahan_data_induk.count.mockResolvedValue(1);
       mockPrisma.ta_pegawai.findMany.mockResolvedValue(mockPegawaiList);
       mockPrisma.ref_kedudukanpns.findMany.mockResolvedValue([]);
+      mockPrisma.ta_arsip.findMany.mockResolvedValue([]);
 
       const result = await pensiunService.getAllPensiun({});
 
       expect(result.data[0].pegawai.jabatan).toBe("Pelaksana");
       expect(result.data[0].nama_kedudukan).toBe("PEMBERHENTIAN");
+    });
+
+    it("harus mengambil arsip dari ta_arsip jika file_sk pada rwt_perubahan_data_induk bernilai null", async () => {
+      const mockRawPensiun = [
+        {
+          id: "6b4aaf07-52d0-4a64-90d7-d1ad70e9c913",
+          pegawai_id: "5d311a45-e98b-455a-bba3-c42883a41629",
+          kedudukanpns_id: 3,
+          sk: "800.1.6.6/139.4/BKPSDMD-B.TU/2023",
+          tglSk: new Date("2023-01-01"),
+          tmtSk: new Date("2022-08-01"),
+          pengesahan: "BUPATI TOJO UNA-UNA",
+          file_sk: null,
+          ket: "Pengabdian, Pemberhentian dan Pemberian Pensiun Janda/Duda",
+          created_at: new Date("2023-01-01"),
+        },
+      ];
+
+      mockPrisma.rwt_perubahan_data_induk.findMany.mockResolvedValue(mockRawPensiun);
+      mockPrisma.rwt_perubahan_data_induk.count.mockResolvedValue(1);
+      mockPrisma.ta_pegawai.findMany.mockResolvedValue([
+        {
+          id: "5d311a45-e98b-455a-bba3-c42883a41629",
+          nipBaru: "197509132000031004",
+          ta_orang: { nama: "MARIANTO", foto: null },
+          rwt_jabatan: {
+            ref_jabatan: { nama_jabatan: "Guru Madya", ref_jnsjab: { jnsjab: "Fungsional" } },
+            ref_unitorganisasi: { nmUnor: "Dinas Pendidikan" },
+          },
+        },
+      ]);
+      mockPrisma.ref_kedudukanpns.findMany.mockResolvedValue([
+        { id: 3, kedudukanpns: "PNS NON AKTIF PENSIUN JANDA/DUDA" },
+      ]);
+      mockPrisma.ta_arsip.findMany.mockResolvedValue([
+        {
+          from: "6b4aaf07-52d0-4a64-90d7-d1ad70e9c913",
+          arsip: "Kgt3gwCNeZY04HR8bRojArHyNHZEZra0bE9yOtBK.pdf",
+        },
+      ]);
+
+      const result = await pensiunService.getAllPensiun({});
+
+      expect(mockPrisma.ta_arsip.findMany).toHaveBeenCalledWith({
+        where: { from: { in: ["6b4aaf07-52d0-4a64-90d7-d1ad70e9c913"] } },
+        select: { from: true, arsip: true },
+      });
+      expect(result.data[0].file_sk).toBe("/storage/dokumen/Kgt3gwCNeZY04HR8bRojArHyNHZEZra0bE9yOtBK.pdf");
     });
   });
 
@@ -197,6 +253,33 @@ describe("pensiun.service", () => {
         data: { kedudukanPns_id: 2 },
       });
       expect(result).toEqual(expect.objectContaining({ id: "pen-1" }));
+    });
+
+    it("harus menyimpan referensi ke ta_arsip jika file fisik diunggah", async () => {
+      mockPrisma.ta_pegawai.findUnique.mockResolvedValue({ id: "p1", nipBaru: "123" });
+      mockPrisma.rwt_perubahan_data_induk.create.mockResolvedValue({ id: "pen-1", pegawai_id: "p1" });
+      mockPrisma.ta_pegawai.update.mockResolvedValue({ id: "p1", kedudukanPns_id: 2 });
+      mockPrisma.ta_arsip.create.mockResolvedValue({ id: "ars-1" });
+
+      const mockFile = { path: "storage/dokumen/sk-upload.pdf" };
+      await pensiunService.createPensiun(
+        {
+          pegawai_id: "p1",
+          kedudukanpns_id: 2,
+          no_sk: "SK/123",
+        },
+        mockFile
+      );
+
+      expect(mockPrisma.ta_arsip.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            pegawai_id: "p1",
+            jnsarsip_id: 8,
+            arsip: "storage/dokumen/sk-upload.pdf",
+          }),
+        })
+      );
     });
   });
 
@@ -273,6 +356,45 @@ describe("pensiun.service", () => {
       expect(result.pegawai.nama).toBe("Ahmad");
       expect(result.nama_kedudukan).toBe("PENSIUN MASA WAKTU");
     });
+
+    it("harus fallback ke ta_arsip jika file_sk pada rwt_perubahan_data_induk bernilai null", async () => {
+      mockPrisma.rwt_perubahan_data_induk.findFirst.mockResolvedValue({
+        id: "pen-legacy",
+        pegawai_id: "p1",
+        kedudukanpns_id: 3,
+        sk: "SK/LEGACY",
+        tglSk: new Date("2023-01-01"),
+        tmtSk: new Date("2023-02-01"),
+        pengesahan: "BUPATI",
+        ket: "Pensiun Legacy",
+        file_sk: null,
+        created_at: new Date("2023-01-01"),
+      });
+      mockPrisma.ta_arsip.findFirst.mockResolvedValue({
+        arsip: "Kgt3gwCNeZY04HR8bRojArHyNHZEZra0bE9yOtBK.pdf",
+      });
+      mockPrisma.ta_pegawai.findUnique.mockResolvedValue({
+        id: "p1",
+        nipBaru: "197509132000031004",
+        ta_orang: { nama: "MARIANTO", foto: null },
+        rwt_jabatan: {
+          ref_jabatan: { nama_jabatan: "Guru" },
+          ref_unitorganisasi: { nmUnor: "Disdik" },
+        },
+      });
+      mockPrisma.ref_kedudukanpns.findFirst = jest.fn().mockResolvedValue({
+        id: 3,
+        kedudukanpns: "PNS NON AKTIF PENSIUN JANDA/DUDA",
+      });
+
+      const result = await pensiunService.getPensiunById("pen-legacy");
+
+      expect(mockPrisma.ta_arsip.findFirst).toHaveBeenCalledWith({
+        where: { from: "pen-legacy" },
+        select: { arsip: true },
+      });
+      expect(result.file_sk).toBe("/storage/dokumen/Kgt3gwCNeZY04HR8bRojArHyNHZEZra0bE9yOtBK.pdf");
+    });
   });
 
   describe("updatePensiun", () => {
@@ -304,6 +426,8 @@ describe("pensiun.service", () => {
         file_sk: "new_path/sk.pdf",
       });
       mockPrisma.ta_pegawai.update.mockResolvedValue({ id: "p1", kedudukanPns_id: 4 });
+      mockPrisma.ta_arsip.findFirst.mockResolvedValue({ id: "ars-1" });
+      mockPrisma.ta_arsip.update.mockResolvedValue({ id: "ars-1", arsip: "new_path/sk.pdf" });
 
       const result = await pensiunService.updatePensiun(
         "pen-1",
@@ -328,6 +452,10 @@ describe("pensiun.service", () => {
       expect(mockPrisma.ta_pegawai.update).toHaveBeenCalledWith({
         where: { id: "p1" },
         data: { kedudukanPns_id: 4 },
+      });
+      expect(mockPrisma.ta_arsip.update).toHaveBeenCalledWith({
+        where: { id: "ars-1" },
+        data: { arsip: "new_path/sk.pdf" },
       });
       expect(result.sk).toBe("SK/NEW");
     });

@@ -45,6 +45,8 @@ tags:
     description: Endpoint untuk import data PNS dari file CSV, monitoring batch, dan manajemen data terimport
   - name: Pemberhentian & Pensiun
     description: Endpoint pengelolaan penetapan pemberhentian, pensiun ASN, dan riwayat status kedudukan pegawai
+  - name: Rekapitulasi
+    description: Endpoint pelaporan agregasi rekapitulasi data ASN (8 tabel rekapitulasi, filter unit kerja, snapshot bulanan, dan export Excel)
 
 paths:
 
@@ -3945,6 +3947,93 @@ paths:
           description: Data pensiun berhasil dihapus
         '404':
           $ref: '#/components/responses/NotFound'
+
+  # ==========================================
+  # REKAPITULASI
+  # ==========================================
+  /api/rekapitulasi/all:
+    get:
+      tags:
+        - Rekapitulasi
+      summary: Ambil seluruh data 8 tabel rekapitulasi sekaligus
+      description: Mengambil agregasi lengkap 8 jenis rekapitulasi pegawai aktif (PNS kedudukan 1, 7, 8, 10). Mendukung filter unit kerja induk (unor_id) dan snapshot periode bulanan.
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: unor_id
+          schema:
+            type: string
+          description: ID unit kerja induk untuk filter data
+        - in: query
+          name: period
+          schema:
+            type: string
+            example: "2026-10"
+          description: Periode snapshot bulanan (format YYYY-MM)
+      responses:
+        '200':
+          description: Data rekapitulasi berhasil diambil
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/rekapitulasi/export/excel:
+    get:
+      tags:
+        - Rekapitulasi
+      summary: Unduh laporan rekapitulasi dalam format Excel (XLSX)
+      description: Menghasilkan berkas Excel terformat berisi seluruh lembar kerja rekapitulasi ASN.
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: unor_id
+          schema:
+            type: string
+          description: Filter unit kerja induk
+      responses:
+        '200':
+          description: Berkas Excel berhasil diunduh
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/rekapitulasi/snapshot:
+    post:
+      tags:
+        - Rekapitulasi
+      summary: Simpan snapshot rekapitulasi bulanan
+      description: Menyimpan snapshot hasil rekapitulasi pegawai saat ini untuk perbandingan periode di masa depan.
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - period
+              properties:
+                period:
+                  type: string
+                  example: "2026-10"
+                unor_id:
+                  type: string
+      responses:
+        '201':
+          description: Snapshot berhasil disimpan
+        '422':
+          $ref: '#/components/responses/ValidationError'
 
 # ==========================================
 # COMPONENTS & SCHEMAS

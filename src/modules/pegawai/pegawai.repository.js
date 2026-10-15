@@ -8,6 +8,11 @@ export const findAll = async ({ page = 1, limit = 10, search = "", status = "akt
   const skip = (page - 1) * limit;
 
   const andConditions = [];
+  const cleanSearch = search ? String(search).trim() : "";
+  // NIP teridentifikasi jika hanya berisi angka (dan spasi/titik/strip opsional)
+  const isNip = cleanSearch.length > 0 && /^\d+$/.test(cleanSearch.replace(/[\s.-]/g, ""));
+  const cleanNip = isNip ? cleanSearch.replace(/[\s.-]/g, "") : "";
+
   if (status === "aktif") {
     andConditions.push({ kedudukanPns_id: { in: [1, 7, 8, 10] } });
   } else if (status === "non-aktif") {
@@ -17,15 +22,27 @@ export const findAll = async ({ page = 1, limit = 10, search = "", status = "akt
         { kedudukanPns_id: null },
       ],
     });
+  } else if (status === "semua") {
+    // Jika status=semua:
+    // Pegawai non-aktif HANYA boleh dicari menggunakan NIP.
+    // Jika pencarian menggunakan Nama (bukan NIP), maka hanya cari pegawai aktif!
+    if (cleanSearch && !isNip) {
+      andConditions.push({ kedudukanPns_id: { in: [1, 7, 8, 10] } });
+    }
   }
 
-  if (search) {
-    andConditions.push({
-      OR: [
-        { nipBaru: { contains: search } },
-        { ta_orang: { nama: { contains: search } } },
-      ],
-    });
+  if (cleanSearch) {
+    if (isNip) {
+      // Pencarian dengan NIP: cocokkan nipBaru (bisa berisi NIP aktif maupun non-aktif sesuai status)
+      andConditions.push({
+        nipBaru: { contains: cleanNip || cleanSearch },
+      });
+    } else {
+      // Pencarian dengan Nama: cocokkan nama pegawai
+      andConditions.push({
+        ta_orang: { nama: { contains: cleanSearch } },
+      });
+    }
   }
 
   const where = andConditions.length > 0 ? { AND: andConditions } : {};

@@ -80,10 +80,43 @@ const importPnsSelect = {
   updated_at: true,
 };
 
-export const createMany = async (records) => {
-  return prisma.ta_import_pns.createMany({
+export const createMany = async (records, tx = prisma) => {
+  return tx.ta_import_pns.createMany({
     data: records,
   });
+};
+
+/**
+ * Hapus seluruh data import sebelumnya (bersihkan staging import PNS)
+ */
+export const truncate = async (tx = prisma) => {
+  return tx.ta_import_pns.deleteMany({});
+};
+
+/**
+ * Menggantikan seluruh data import PNS yang lama dengan data baru dalam transaksi atomik
+ */
+export const replaceAllImportedPns = async (records, chunkSize = 500) => {
+  return prisma.$transaction(
+    async (tx) => {
+      // Hapus data lama agar digantikan sepenuhnya dengan data baru
+      await tx.ta_import_pns.deleteMany({});
+
+      let insertedCount = 0;
+      for (let i = 0; i < records.length; i += chunkSize) {
+        const chunk = records.slice(i, i + chunkSize);
+        const result = await tx.ta_import_pns.createMany({
+          data: chunk,
+        });
+        insertedCount += result.count;
+      }
+
+      return insertedCount;
+    },
+    {
+      timeout: 120000, // 2 menit untuk data besar ribuan baris
+    }
+  );
 };
 
 export const findAll = async ({ page = 1, limit = 10, search = "", batch_id = "", status_cpns_pns = "" }) => {

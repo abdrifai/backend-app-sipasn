@@ -249,17 +249,11 @@ export const processCsvImport = async (fileBuffer, fileName) => {
     throw new AppError("Tidak ada data valid yang dapat diimport dari CSV", 400);
   }
 
-  // Chunk insert per 500 rows for performance
+  // Gantikan seluruh data import lama dengan data baru hasil import
   const chunkSize = 500;
-  let insertedCount = 0;
+  const insertedCount = await importPnsRepository.replaceAllImportedPns(normalizedRecords, chunkSize);
 
-  for (let i = 0; i < normalizedRecords.length; i += chunkSize) {
-    const chunk = normalizedRecords.slice(i, i + chunkSize);
-    const result = await importPnsRepository.createMany(chunk);
-    insertedCount += result.count;
-  }
-
-  logger.info("Import CSV PNS berhasil diproses", {
+  logger.info("Import CSV PNS berhasil diproses (data lama digantikan data baru)", {
     batchId,
     fileName,
     totalRows: normalizedRecords.length,

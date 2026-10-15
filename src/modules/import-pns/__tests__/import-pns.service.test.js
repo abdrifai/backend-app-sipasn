@@ -3,6 +3,8 @@ import { jest } from "@jest/globals";
 // Mock repository
 jest.unstable_mockModule("../import-pns.repository.js", () => ({
   createMany: jest.fn(),
+  replaceAllImportedPns: jest.fn(),
+  truncate: jest.fn(),
   findAll: jest.fn(),
   findById: jest.fn(),
   getSummary: jest.fn(),
@@ -19,33 +21,33 @@ describe("Import PNS Service", () => {
   });
 
   describe("processCsvImport", () => {
-    it("harus berhasil memproses buffer CSV berpemisah koma dan menyimpan ke database", async () => {
+    it("harus berhasil memproses buffer CSV berpemisah koma dan menggantikan data di database", async () => {
       const csvData = Buffer.from(
         "NIP BARU,NAMA,NIK,UNOR NAMA\n198501012010011001,Ahmad Fauzi,3171010101850001,Dinas Kominfo\n"
       );
-      importPnsRepository.createMany.mockResolvedValue({ count: 1 });
+      importPnsRepository.replaceAllImportedPns.mockResolvedValue(1);
 
       const result = await processCsvImport(csvData, "test.csv");
 
       expect(result).toHaveProperty("batchId");
       expect(result.fileName).toBe("test.csv");
       expect(result.insertedCount).toBe(1);
-      expect(importPnsRepository.createMany).toHaveBeenCalledTimes(1);
+      expect(importPnsRepository.replaceAllImportedPns).toHaveBeenCalledTimes(1);
     });
 
-    it("harus berhasil memproses buffer CSV berpemisah pipa (|) dan menyimpan ke database", async () => {
+    it("harus berhasil memproses buffer CSV berpemisah pipa (|) dan menggantikan data di database", async () => {
       const pipeCsvData = Buffer.from(
         "PNS ID|NIP BARU|NIP LAMA|NAMA|GELAR DEPAN|GELAR BELAKANG|TEMPAT LAHIR ID|TEMPAT LAHIR NAMA|TANGGAL LAHIR\n" +
         "A84B|198501012010011001||AHMAD FAUZI|Dr.|S.Kom.|3171|JAKARTA|1985-01-01\n"
       );
-      importPnsRepository.createMany.mockResolvedValue({ count: 1 });
+      importPnsRepository.replaceAllImportedPns.mockResolvedValue(1);
 
       const result = await processCsvImport(pipeCsvData, "test_pipe.csv");
 
       expect(result).toHaveProperty("batchId");
       expect(result.fileName).toBe("test_pipe.csv");
       expect(result.insertedCount).toBe(1);
-      expect(importPnsRepository.createMany).toHaveBeenCalledTimes(1);
+      expect(importPnsRepository.replaceAllImportedPns).toHaveBeenCalledTimes(1);
     });
 
     it("harus melempar error jika buffer CSV kosong", async () => {

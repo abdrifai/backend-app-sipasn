@@ -29,6 +29,7 @@ import peremajaanKolektifRoute from "./modules/peremajaan-kolektif/peremajaan-ko
 import peremajaanDataIndukRoute from "./modules/peremajaan-data-induk/peremajaan-data-induk.route.js";
 import catatanRoute from "./modules/catatan/catatan.route.js";
 import refPeraturanRoute from "./modules/ref-peraturan/ref-peraturan.route.js";
+import rekapitulasiRoute from "./modules/rekapitulasi/rekapitulasi.route.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -88,6 +89,7 @@ app.use("/api/peremajaan-kolektif", peremajaanKolektifRoute);
 app.use("/api/peremajaan-data-induk", peremajaanDataIndukRoute);
 app.use("/api/catatan", catatanRoute);
 app.use("/api/ref-peraturan", refPeraturanRoute);
+app.use("/api/rekapitulasi", rekapitulasiRoute);
 
 
 // Swagger API Documentation (Rule 04)

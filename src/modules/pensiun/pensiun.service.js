@@ -16,6 +16,19 @@ const parseOptionalInt = (val) => {
   return isNaN(num) ? null : num;
 };
 
+/**
+ * Helper pemformat URL dokumen fisik/arsip SK Pensiun & Pemberhentian
+ */
+const formatDokumenUrl = (arsipPath) => {
+  if (!arsipPath) return null;
+  const cleaned = String(arsipPath).replace(/\\/g, "/").trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith("http://") || cleaned.startsWith("https://")) return cleaned;
+  if (cleaned.startsWith("/storage/")) return cleaned;
+  if (cleaned.startsWith("storage/")) return `/${cleaned}`;
+  return `/storage/dokumen/${cleaned}`;
+};
+
 export const getKedudukanPensiunOptions = async () => {
   return prisma.ref_kedudukanpns.findMany({
     where: {
@@ -79,11 +92,12 @@ export const getAllPensiun = async (params = {}) => {
     prisma.rwt_perubahan_data_induk.count({ where }),
   ]);
 
-  // Fetch related Pegawai and KedudukanPNS details
+  // Fetch related Pegawai, KedudukanPNS details, and legacy archives from ta_arsip
   const pegawaiIds = [...new Set(rawPensiunList.map((item) => item.pegawai_id))];
   const kedudukanIds = [...new Set(rawPensiunList.map((item) => item.kedudukanpns_id).filter(Boolean))];
+  const pensiunIds = rawPensiunList.map((item) => item.id);
 
-  const [pegawaiList, kedudukanList] = await Promise.all([
+  const [pegawaiList, kedudukanList, arsipList] = await Promise.all([
     pegawaiIds.length > 0
       ? prisma.ta_pegawai.findMany({
           where: { id: { in: pegawaiIds } },
@@ -124,13 +138,26 @@ export const getAllPensiun = async (params = {}) => {
           select: { id: true, kedudukanpns: true },
         })
       : [],
+    pensiunIds.length > 0
+      ? prisma.ta_arsip.findMany({
+          where: { from: { in: pensiunIds } },
+          select: { from: true, arsip: true },
+        })
+      : [],
   ]);
 
   const pegawaiMap = new Map(pegawaiList.map((p) => [p.id, p]));
   const kedudukanMap = new Map(kedudukanList.map((k) => [Number(k.id), k.kedudukanpns]));
+  const arsipMap = new Map();
+  for (const a of arsipList) {
+    if (!arsipMap.has(a.from) && a.arsip) {
+      arsipMap.set(a.from, a.arsip);
+    }
+  }
 
   const data = rawPensiunList.map((item) => {
     const pegawai = pegawaiMap.get(item.pegawai_id);
+    const resolvedFile = item.file_sk || arsipMap.get(item.id) || null;
     return {
       id: item.id,
       pegawai_id: item.pegawai_id,
@@ -139,7 +166,7 @@ export const getAllPensiun = async (params = {}) => {
       tgl_sk: item.tglSk,
       tmt_pensiun: item.tmtSk,
       pengesahan: item.pengesahan,
-      file_sk: item.file_sk,
+      file_sk: formatDokumenUrl(resolvedFile),
       ket: item.ket,
       created_at: item.created_at,
       pegawai: pegawai
@@ -204,7 +231,20 @@ export const createPensiun = async (data, file) => {
       },
     });
 
-    // 2. Update status kedudukan pegawai di ta_pegawai
+    // 2. Simpan referensi ke ta_arsip jika file fisik diunggah
+    if (filePath) {
+      await tx.ta_arsip.create({
+        data: {
+          id: uuidv4(),
+          pegawai_id,
+          from: pensiunId,
+          jnsarsip_id: 8, // Arsip SK Pemberhentian / Pensiun
+          arsip: filePath,
+        },
+      });
+    }
+
+    // 3. Update status kedudukan pegawai di ta_pegawai
     await tx.ta_pegawai.update({
       where: { id: pegawai_id },
       data: {
@@ -237,6 +277,17 @@ export const getPensiunById = async (id) => {
 
   if (!item) {
     throw new AppError("Data pemberhentian tidak ditemukan", 404);
+  }
+
+  let rawFile = item.file_sk;
+  if (!rawFile) {
+    const legacyArsip = await prisma.ta_arsip.findFirst({
+      where: { from: item.id },
+      select: { arsip: true },
+    });
+    if (legacyArsip?.arsip) {
+      rawFile = legacyArsip.arsip;
+    }
   }
 
   const [pegawai, kedudukan] = await Promise.all([
@@ -288,7 +339,7 @@ export const getPensiunById = async (id) => {
     tgl_sk: item.tglSk,
     tmt_pensiun: item.tmtSk,
     pengesahan: item.pengesahan,
-    file_sk: item.file_sk,
+    file_sk: formatDokumenUrl(rawFile),
     ket: item.ket,
     created_at: item.created_at,
     pegawai: pegawai
@@ -359,7 +410,31 @@ export const updatePensiun = async (id, data, file) => {
       },
     });
 
-    // 2. Update status kedudukan pegawai jika berubah
+    // 2. Sinkronkan ke ta_arsip jika ada upload file fisik baru
+    if (file && filePath) {
+      const existingArsip = await tx.ta_arsip.findFirst({
+        where: { from: id },
+        select: { id: true },
+      });
+      if (existingArsip) {
+        await tx.ta_arsip.update({
+          where: { id: existingArsip.id },
+          data: { arsip: filePath },
+        });
+      } else {
+        await tx.ta_arsip.create({
+          data: {
+            id: uuidv4(),
+            pegawai_id: existing.pegawai_id,
+            from: id,
+            jnsarsip_id: 8,
+            arsip: filePath,
+          },
+        });
+      }
+    }
+
+    // 3. Update status kedudukan pegawai jika berubah
     if (kedudukanIdInt && kedudukanIdInt !== existing.kedudukanpns_id) {
       await tx.ta_pegawai.update({
         where: { id: existing.pegawai_id },
