@@ -3363,6 +3363,327 @@ paths:
                 type: string
                 format: binary
 
+  /api/data-matching/sync/golongan:
+    post:
+      tags:
+        - Data Matching
+      summary: Sinkronisasi data pangkat / golongan dari SIASN ke database lokal
+      description: Memindahkan data golongan dari SIASN ke riwayat golongan lokal (rwt_gol), memperbarui pointer golongan aktif pegawai, dan memasukkannya ke antrean upload berkas SK golongan.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nips
+              properties:
+                nips:
+                  type: array
+                  items:
+                    type: string
+                  example: ["198501012010011001", "199002022015022002"]
+      responses:
+        '200':
+          description: Sinkronisasi data golongan berhasil diproses
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/data-matching/sync/golongan/queue:
+    get:
+      tags:
+        - Data Matching
+      summary: Daftar antrean upload SK golongan hasil sinkronisasi
+      description: Mengambil daftar riwayat sinkronisasi golongan yang membutuhkan dokumen fisik SK (berpaginasi).
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 15
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: status_sk
+          schema:
+            type: string
+            enum: [all, PENDING, UPLOADED]
+            default: all
+      responses:
+        '200':
+          description: Daftar antrean upload SK golongan berhasil diambil
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/data-matching/sync/golongan/{id}/upload-sk:
+    post:
+      tags:
+        - Data Matching
+      summary: Unggah berkas fisik SK golongan untuk entri antrean
+      description: Mengunggah dokumen PDF SK Golongan, mencatat nomor dan tanggal SK, serta memperbarui status antrean menjadi UPLOADED.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File dokumen SK fisik (format PDF, maksimal 5MB)
+                sk:
+                  type: string
+                  description: Nomor SK Golongan
+                tglSk:
+                  type: string
+                  description: Tanggal penetapan SK
+      responses:
+        '200':
+          description: Berkas SK golongan berhasil diunggah
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/data-matching/sync/golongan/{id}:
+    delete:
+      tags:
+        - Data Matching
+      summary: Hapus entri antrean upload SK golongan (soft delete)
+      description: Menghapus item dari antrean upload SK tanpa menghapus riwayat golongan yang sudah dibuat.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+        - name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Antrean berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/data-matching/sync/pendidikan/check:
+    get:
+      tags:
+        - Data Matching
+      summary: Pre-check status referensi pendidikan SIASN vs master ref_pend lokal
+      description: Memeriksa apakah nama/kode pendidikan dari SIASN sudah terdaftar di master lokal dan memberikan usulan jika belum ada.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: nip
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hasil pemeriksaan kesiapan referensi pendidikan
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/data-matching/sync/pendidikan/search-ref:
+    get:
+      tags:
+        - Data Matching
+      summary: Pencarian referensi master pendidikan lokal (ref_pend)
+      description: Mencari referensi pendidikan yang sudah ada untuk dropdown pemilihan manual.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+      responses:
+        '200':
+          description: Daftar referensi pendidikan ditemukan
+
+  /api/data-matching/sync/pendidikan:
+    post:
+      tags:
+        - Data Matching
+      summary: Eksekusi sinkronisasi pendidikan SIASN -> Database Lokal
+      description: Menambahkan ke ref_pend (jika mode new), membuat rwt_pend baru, update ta_pegawai.rwtPend_id, dan memasukkan ke antrean upload Ijazah.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nip
+                - mode
+              properties:
+                nip:
+                  type: string
+                mode:
+                  type: string
+                  enum: [existing, new]
+                selected_pend_id:
+                  type: string
+                new_ref:
+                  type: object
+                  properties:
+                    tktpend_id:
+                      type: string
+                    pend:
+                      type: string
+                    kode:
+                      type: string
+                thnLulus:
+                  type: string
+                nmSekolah:
+                  type: string
+                noIjazah:
+                  type: string
+                tglIjazah:
+                  type: string
+      responses:
+        '200':
+          description: Sinkronisasi pendidikan berhasil diproses
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/data-matching/sync/pendidikan/queue:
+    get:
+      tags:
+        - Data Matching
+      summary: Daftar antrean upload berkas Ijazah pendidikan
+      description: Mengambil antrean pegawai yang pendidikan barunya telah disinkronkan dan menunggu pengunggahan berkas scan Ijazah.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 15
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: status_ijazah
+          schema:
+            type: string
+            enum: [all, PENDING, UPLOADED]
+            default: all
+      responses:
+        '200':
+          description: Daftar antrean upload Ijazah berhasil diambil
+
+  /api/data-matching/sync/pendidikan/{id}/upload-ijazah:
+    post:
+      tags:
+        - Data Matching
+      summary: Unggah dokumen fisik Ijazah untuk item antrean
+      description: Mengunggah berkas scan PDF Ijazah dan memperbarui status antrean menjadi UPLOADED.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                noIjazah:
+                  type: string
+                tglIjazah:
+                  type: string
+                nmSekolah:
+                  type: string
+      responses:
+        '200':
+          description: Berkas Ijazah berhasil diunggah
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/data-matching/sync/pendidikan/{id}:
+    delete:
+      tags:
+        - Data Matching
+      summary: Hapus entri antrean upload Ijazah pendidikan (soft delete)
+      description: Menghapus item dari antrean upload Ijazah tanpa menghapus riwayat pendidikan yang sudah dibuat.
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Antrean berhasil dihapus
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
   # ==========================================
   # PEREMAJAAN KOLEKTIF & MUTASI UNOR
   # ==========================================

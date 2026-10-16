@@ -1157,3 +1157,53 @@ model ta_rekap_snapshot {
   @@index([unor_id])
   @@index([is_deleted])
 }
+
+model ta_sync_golongan {
+  id           String    @id @default(uuid()) @db.Char(36)
+  pegawai_id   String    @db.Char(36)
+  rwt_gol_id   String    @db.Char(36)
+  nip          String    @db.VarChar(30)
+  nama         String    @db.VarChar(200)
+  gol_lama     String?   @db.VarChar(10)
+  gol_baru     String    @db.VarChar(10)
+  kd_gol_baru  String    @db.VarChar(2)
+  tmt_golongan DateTime  @db.Date
+  status_sk    String    @default("PENDING") @db.VarChar(20) // PENDING | UPLOADED
+  batch_id     String?   @db.Char(36)
+  is_deleted   Boolean   @default(false)
+  created_at   DateTime? @default(now()) @db.Timestamp(0)
+  updated_at   DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id])
+  @@index([rwt_gol_id])
+  @@index([nip])
+  @@index([status_sk])
+  @@index([is_deleted])
+}
+
+model ta_sync_pendidikan {
+  id             String    @id @default(uuid()) @db.Char(36)
+  pegawai_id     String    @db.Char(36)
+  rwt_pend_id    String    @db.Char(36)
+  pend_id        String    @db.Char(36)
+  nip            String    @db.VarChar(30)
+  nama           String    @db.VarChar(200)
+  pend_lama      String?   @db.VarChar(255)
+  pend_baru      String    @db.VarChar(255)
+  tkt_pend_baru  String?   @db.VarChar(50)
+  thn_lulus      String?   @db.VarChar(10)
+  status_ijazah  String    @default("PENDING") @db.VarChar(20) // PENDING | UPLOADED
+  batch_id       String?   @db.Char(36)
+  is_deleted     Boolean   @default(false)
+  created_at     DateTime? @default(now()) @db.Timestamp(0)
+  updated_at     DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([pegawai_id])
+  @@index([rwt_pend_id])
+  @@index([pend_id])
+  @@index([nip])
+  @@index([status_ijazah])
+  @@index([is_deleted])
+}
+
+

@@ -84,11 +84,12 @@ describe("Data Matching Module", () => {
     expect(stats).toHaveProperty("only_local_count");
     expect(stats).toHaveProperty("only_siasn_count");
     expect(stats).toHaveProperty("mismatch_breakdown");
-    expect(stats.mismatch_breakdown).toHaveProperty("golongan");
-    expect(stats.mismatch_breakdown).toHaveProperty("jabatan");
-    expect(stats.mismatch_breakdown).toHaveProperty("unor");
     expect(stats.mismatch_breakdown).toHaveProperty("nama");
-    expect(stats.mismatch_breakdown).toHaveProperty("kedudukan");
+    expect(stats.mismatch_breakdown).toHaveProperty("status_kepegawaian");
+    expect(stats.mismatch_breakdown).toHaveProperty("golongan");
+    expect(stats.mismatch_breakdown).toHaveProperty("pendidikan");
+    expect(stats.mismatch_breakdown).toHaveProperty("jabatan");
+    expect(stats.mismatch_breakdown).toHaveProperty("unit_kerja");
   });
 
   it("getMatchingList should return paginated list and meta", async () => {
@@ -100,11 +101,11 @@ describe("Data Matching Module", () => {
     expect(result.meta.limit).toBe(10);
   });
 
-  it("getMatchingDetail should return 19 comparison fields", async () => {
+  it("getMatchingDetail should return 7 comparison fields", async () => {
     const detail = await service.getMatchingDetail("198001012005011001");
     expect(detail).toHaveProperty("nip", "198001012005011001");
     expect(detail).toHaveProperty("fields");
-    expect(detail.fields.length).toBe(19);
+    expect(detail.fields.length).toBe(7);
     expect(detail.fields[0].label).toBe("NIP");
   });
 

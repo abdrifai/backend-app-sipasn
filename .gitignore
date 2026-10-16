@@ -22,3 +22,6 @@ Thumbs.db
 # Backup & Temporary Dumps
 backup_*.json
 *.dump
+
+# Coverage
+coverage/
